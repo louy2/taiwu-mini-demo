@@ -43,6 +43,15 @@
         <span class="btn-text">战斗</span>
         <span class="btn-sub">寻找对手</span>
       </button>
+
+      <button
+        v-if="state.battleReports.length > 0"
+        @click="showReportList = true"
+        class="btn report-btn"
+      >
+        <span class="btn-text">战报</span>
+        <span class="btn-sub">回顾往昔</span>
+      </button>
     </div>
 
     <div v-if="state.combatState.inCombat" class="combat-status">
@@ -54,7 +63,6 @@
 
       <!-- Mark Progress Bars (Health) -->
       <div class="bars">
-        <!-- Width represents remaining life until defeat (12 marks) -->
         <div class="hp-bar player-hp" :style="{ width: (1 - state.combatState.playerMarks/12)*100 + '%' }"></div>
         <div class="hp-bar enemy-hp" :style="{ width: (1 - state.combatState.enemyMarks/12)*100 + '%' }"></div>
       </div>
@@ -64,6 +72,12 @@
         <span class="pool-label">伤势积压: {{ state.combatState.playerDamagePool.toFixed(0) }}/200</span>
         <span class="pool-label">伤势积压: {{ state.combatState.enemyDamagePool.toFixed(0) }}/200</span>
       </div>
+
+      <!-- Skip Button -->
+      <button class="skip-btn" @click="handleSkip" v-if="!state.combatState.skipping">
+        >> 直接结束
+      </button>
+      <div v-else class="skip-text">快速结算中...</div>
     </div>
 
     <div class="logs-container">
@@ -80,14 +94,57 @@
         </div>
       </div>
     </div>
+
+    <!-- Battle Report List Modal -->
+    <div v-if="showReportList" class="modal-overlay" @click.self="showReportList = false">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>近期战报</h3>
+          <button class="close-btn" @click="showReportList = false">X</button>
+        </div>
+        <div class="report-list">
+          <div
+            v-for="report in state.battleReports"
+            :key="report.id"
+            class="report-item"
+            @click="openReport(report)"
+          >
+            <span class="report-time">{{ report.timestamp }}</span>
+            <span class="report-enemy">VS {{ report.enemyName }}</span>
+            <span class="report-result" :class="{ win: report.result === '胜利', loss: report.result !== '胜利' }">
+              {{ report.result }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Battle Detail Modal -->
+    <div v-if="selectedReport" class="modal-overlay" @click.self="selectedReport = null">
+      <div class="modal detail-modal">
+        <div class="modal-header">
+          <h3>战报详情 - {{ selectedReport.result }}</h3>
+          <button class="close-btn" @click="selectedReport = null">X</button>
+        </div>
+        <div class="detail-logs">
+          <div v-for="(log, idx) in selectedReport.logs" :key="idx" class="log-item combat">
+            <span class="time">[{{ log.timestamp }}]</span>
+            <span class="text">{{ log.text }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, watch, nextTick } from 'vue';
-import { state, initGame, train, startCombat } from './gameLogic';
+import { onMounted, ref } from 'vue';
+import { state, initGame, train, startCombat, skipCombat } from './gameLogic';
 
 const logsContainer = ref(null);
+const showReportList = ref(false);
+const selectedReport = ref(null);
 
 onMounted(() => {
   initGame();
@@ -99,6 +156,14 @@ function handleTrain() {
 
 function handleFight() {
   startCombat();
+}
+
+function handleSkip() {
+  skipCombat();
+}
+
+function openReport(report) {
+  selectedReport.value = report;
 }
 </script>
 
@@ -207,6 +272,7 @@ body {
   flex-direction: column;
   align-items: center;
   transition: all 0.2s;
+  justify-content: center;
 }
 
 .btn:active:not(:disabled) {
@@ -223,15 +289,18 @@ body {
   font-size: 18px;
   font-weight: bold;
   margin-bottom: 4px;
+  white-space: nowrap;
 }
 
 .btn-sub {
-  font-size: 12px;
+  font-size: 10px;
   opacity: 0.7;
+  white-space: nowrap;
 }
 
 .train-btn { border-color: var(--accent-color); }
 .fight-btn { border-color: var(--red-color); color: var(--red-color); }
+.report-btn { border-color: #555; color: #555; }
 
 /* Combat Status */
 .combat-status {
@@ -239,6 +308,8 @@ body {
   padding: 8px;
   background: rgba(183, 28, 28, 0.1);
   border: 1px dashed var(--red-color);
+  display: flex;
+  flex-direction: column;
 }
 
 .status-row {
@@ -270,6 +341,25 @@ body {
 }
 .player-hp { background: #4caf50; }
 .enemy-hp { background: #f44336; margin-left: auto; }
+
+.skip-btn {
+  margin-top: 8px;
+  background: var(--red-color);
+  color: white;
+  border: none;
+  padding: 8px;
+  font-family: inherit;
+  cursor: pointer;
+  font-weight: bold;
+  align-self: center;
+  width: 100%;
+}
+.skip-text {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.8;
+}
 
 /* Logs */
 .logs-container {
@@ -312,5 +402,69 @@ body {
 }
 .log-item.growth {
   color: #2e7d32;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--bg-color);
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  border: 4px double var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+.modal-header h3 { margin: 0; }
+
+.close-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  width: 30px; height: 30px;
+  cursor: pointer;
+}
+
+.report-list, .detail-logs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.report-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px dotted var(--border-color);
+  cursor: pointer;
+}
+.report-item:active { background: rgba(0,0,0,0.05); }
+
+.report-time { font-size: 12px; opacity: 0.6; }
+.report-enemy { font-weight: bold; }
+.report-result { font-weight: bold; }
+.report-result.win { color: green; }
+.report-result.loss { color: red; }
+
+.detail-modal {
+  width: 95%;
+  max-width: 460px;
+  height: 80vh;
 }
 </style>
