@@ -13,6 +13,14 @@
             <span class="label">卸力</span>
             <span class="value">{{ state.player.parry }}</span>
           </div>
+          <div class="stat-item">
+            <span class="label">破体</span>
+            <span class="value">{{ state.player.penetration }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">御体</span>
+            <span class="value">{{ state.player.resistance }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -43,9 +51,18 @@
         <span class="vs">VS</span>
         <span>{{ state.combatState.enemy.name }} ({{ state.combatState.enemyMarks }}/12)</span>
       </div>
+
+      <!-- Mark Progress Bars (Health) -->
       <div class="bars">
+        <!-- Width represents remaining life until defeat (12 marks) -->
         <div class="hp-bar player-hp" :style="{ width: (1 - state.combatState.playerMarks/12)*100 + '%' }"></div>
         <div class="hp-bar enemy-hp" :style="{ width: (1 - state.combatState.enemyMarks/12)*100 + '%' }"></div>
+      </div>
+
+      <!-- Damage Pool Progress (Sub-bars) -->
+      <div class="pool-row">
+        <span class="pool-label">伤势积压: {{ state.combatState.playerDamagePool.toFixed(0) }}/200</span>
+        <span class="pool-label">伤势积压: {{ state.combatState.enemyDamagePool.toFixed(0) }}/200</span>
       </div>
     </div>
 
@@ -75,11 +92,6 @@ const logsContainer = ref(null);
 onMounted(() => {
   initGame();
 });
-
-// Auto-scroll logs logic (optional, but good for UX)
-// But since logs are newest-first (unshift), we might want to stay at top?
-// The logic `state.logs.unshift` puts new logs at the top.
-// So no need to scroll to bottom. Top is fine.
 
 function handleTrain() {
   train();
@@ -236,11 +248,20 @@ body {
   font-weight: bold;
 }
 
+.pool-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 10px;
+  opacity: 0.8;
+}
+
 .bars {
   display: flex;
   justify-content: space-between;
-  height: 4px;
+  height: 6px;
   background: #ddd;
+  margin-top: 4px;
 }
 
 .hp-bar {
@@ -248,8 +269,7 @@ body {
   transition: width 0.3s;
 }
 .player-hp { background: #4caf50; }
-.enemy-hp { background: #f44336; margin-left: auto; } /* Enemy bar shrinks from right? No, standard layout. Let's make them meet in middle? Simple is better. */
-/* Actually, let's keep it simple. */
+.enemy-hp { background: #f44336; margin-left: auto; }
 
 /* Logs */
 .logs-container {
