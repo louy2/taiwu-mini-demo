@@ -18,25 +18,29 @@ const MAX_HEALTH_POOL = 200;
 const defaultState = {
   player: {
     name: '',
-    power: 10, // 力道
-    parry: 10, // 卸力
-    penetration: 10, // 破体
-    resistance: 10, // 御体
+    power: 250, // 力道
+    parry: 250, // 卸力
+    penetration: 250, // 破体
+    resistance: 250, // 御体
   },
   logs: [], // { id, text, type }
+  battleReports: [], // { id, timestamp, enemyName, result, logs: [] }
 };
 
 export const state = reactive({
   player: { ...defaultState.player },
   logs: [],
+  battleReports: [],
   combatState: {
     inCombat: false,
+    skipping: false, // Flag to indicate skip mode
     enemy: null,
     playerMarks: 0,
     enemyMarks: 0,
-    playerDamagePool: 0, // Accumulated damage taken
-    enemyDamagePool: 0, // Accumulated damage taken
+    playerDamagePool: 0,
+    enemyDamagePool: 0,
     round: 0,
+    currentBattleLogs: [], // Temporary storage for current battle
   }
 });
 
@@ -55,7 +59,7 @@ function generateName() {
   return randomElem(SURNAMES) + randomElem(NAMES);
 }
 
-// Add Log
+// Add Main Log (System/Growth/Battle Result)
 function addLog(text, type = 'system') {
   const logEntry = {
     id: Date.now() + Math.random(),
@@ -64,9 +68,18 @@ function addLog(text, type = 'system') {
     timestamp: new Date().toLocaleTimeString(),
   };
   state.logs.unshift(logEntry);
-  if (state.logs.length > 200) {
-    state.logs.pop();
-  }
+  // User requested "Complete retention" for main logs, so we remove the limit.
+  // Caveat: localStorage has a size limit (usually 5MB).
+  // Eventually this will need a cleanup strategy, but for now we obey "Complete".
+}
+
+// Add Combat Log (To current battle report)
+function addCombatLog(text) {
+  const logEntry = {
+    text,
+    timestamp: new Date().toLocaleTimeString(),
+  };
+  state.combatState.currentBattleLogs.push(logEntry);
 }
 
 // Initialize / Load Game
@@ -75,13 +88,15 @@ export function initGame() {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      // Ensure backwards compatibility by merging with default
       state.player = { ...defaultState.player, ...parsed.player };
-      // If new fields are missing (undefined), set them to default
-      if (!state.player.penetration) state.player.penetration = 10;
-      if (!state.player.resistance) state.player.resistance = 10;
+      // Default fallback for new stats if missing
+      if (!state.player.penetration) state.player.penetration = 250;
+      if (!state.player.resistance) state.player.resistance = 250;
+      // If power/parry are suspiciously low (old save), boost them?
+      // No, user said "Initial" adjusted. Existing saves can train up.
 
       state.logs = parsed.logs || [];
+      state.battleReports = parsed.battleReports || [];
       addLog('欢迎回来，侠士 ' + state.player.name);
     } catch (e) {
       console.error('Save file corrupted', e);
@@ -93,7 +108,7 @@ export function initGame() {
 
   // Auto-save watcher
   watch(
-    () => ({ player: state.player, logs: state.logs }),
+    () => ({ player: state.player, logs: state.logs, battleReports: state.battleReports }),
     (newVal) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newVal));
     },
@@ -105,12 +120,13 @@ export function initGame() {
 export function resetGame() {
   state.player = {
     name: generateName(),
-    power: randomInt(10, 20),
-    parry: randomInt(10, 20),
-    penetration: randomInt(10, 20),
-    resistance: randomInt(10, 20),
+    power: randomInt(250, 260),
+    parry: randomInt(250, 260),
+    penetration: randomInt(250, 260),
+    resistance: randomInt(250, 260),
   };
   state.logs = [];
+  state.battleReports = [];
   addLog(`初入江湖，你的名字是 ${state.player.name}。`);
   addLog(`初始属性 - 力道: ${state.player.power}, 卸力: ${state.player.parry}, 破体: ${state.player.penetration}, 御体: ${state.player.resistance}`);
 }
@@ -119,14 +135,12 @@ export function resetGame() {
 export function train() {
   if (state.combatState.inCombat) return;
 
-  // Randomly increase stats
   let trained = false;
   if (Math.random() < 0.5) { state.player.power++; trained = true; }
   if (Math.random() < 0.5) { state.player.parry++; trained = true; }
   if (Math.random() < 0.5) { state.player.penetration++; trained = true; }
   if (Math.random() < 0.5) { state.player.resistance++; trained = true; }
 
-  // Guarantee at least one stat if bad luck
   if (!trained) {
     const roll = Math.random();
     if (roll < 0.25) state.player.power++;
@@ -143,8 +157,6 @@ export function train() {
 export async function startCombat() {
   if (state.combatState.inCombat) return;
 
-  // Generate Enemy
-  // Enemy stats scale with player (0.8 to 1.2)
   const enemyName = generateName() + ' (对手)';
   const scale = 0.8 + Math.random() * 0.4;
   const enemyPower = Math.floor(state.player.power * scale);
@@ -153,6 +165,7 @@ export async function startCombat() {
   const enemyResistance = Math.floor(state.player.resistance * scale);
 
   state.combatState.inCombat = true;
+  state.combatState.skipping = false;
   state.combatState.enemy = {
     name: enemyName,
     power: enemyPower,
@@ -166,34 +179,49 @@ export async function startCombat() {
   state.combatState.playerDamagePool = 0;
   state.combatState.enemyDamagePool = 0;
   state.combatState.round = 0;
+  state.combatState.currentBattleLogs = [];
 
-  addLog(`遭遇了 ${enemyName}！战斗开始！(敌方 力:${enemyPower} 卸:${enemyParry} 破:${enemyPenetration} 御:${enemyResistance})`, 'combat');
+  addLog(`遭遇了 ${enemyName}！战斗开始！`, 'combat'); // Main log only shows start
+  addCombatLog(`遭遇了 ${enemyName}！(敌方 力:${enemyPower} 卸:${enemyParry} 破:${enemyPenetration} 御:${enemyResistance})`);
 
-  await combatLoop();
+  // Start the loop (async)
+  combatLoop();
+}
+
+// Skip Function
+export function skipCombat() {
+  if (!state.combatState.inCombat) return;
+  state.combatState.skipping = true;
+  // The loop will pick up this flag and finish instantly
 }
 
 async function combatLoop() {
   while (state.combatState.inCombat) {
     state.combatState.round++;
-    await new Promise(r => setTimeout(r, 1000)); // Delay for readability
+
+    // If not skipping, wait. If skipping, don't wait.
+    if (!state.combatState.skipping) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
 
     // Player attacks Enemy
-    await resolveAttack(state.player, state.combatState.enemy, true);
+    resolveAttack(state.player, state.combatState.enemy, true);
     if (checkEndCombat()) break;
 
-    await new Promise(r => setTimeout(r, 1000));
+    if (!state.combatState.skipping) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
 
     // Enemy attacks Player
-    await resolveAttack(state.combatState.enemy, state.player, false);
+    resolveAttack(state.combatState.enemy, state.player, false);
     if (checkEndCombat()) break;
   }
 }
 
-async function resolveAttack(attacker, defender, isPlayerAttacking) {
+function resolveAttack(attacker, defender, isPlayerAttacking) {
   const attackerName = isPlayerAttacking ? '你' : attacker.name;
   const defenderName = isPlayerAttacking ? defender.name : '你';
 
-  // 1. Calculate Hit Rate
   let hitRate = 0;
   if (attacker.power > defender.parry) {
     hitRate = attacker.power / defender.parry;
@@ -201,7 +229,6 @@ async function resolveAttack(attacker, defender, isPlayerAttacking) {
     hitRate = (attacker.power / defender.parry) / 2;
   }
 
-  // 2. Roll for Hit
   const roll = Math.random();
   const isHit = roll < hitRate;
 
@@ -210,9 +237,6 @@ async function resolveAttack(attacker, defender, isPlayerAttacking) {
 
   let desc = '';
   if (isHit) {
-    // 3. Calculate Damage
-    // Formula: Ratio x = Pen/Res. Decay y = 12.51 / (12.51 + x). Factor = x * y.
-    // Damage = Base * Factor.
     const ratio = attacker.penetration / defender.resistance;
     const decay = 12.51 / (12.51 + ratio);
     const damage = BASE_DAMAGE * ratio * decay;
@@ -221,11 +245,9 @@ async function resolveAttack(attacker, defender, isPlayerAttacking) {
     desc = `${attackerName}使出一招【${move}】，命中${defenderName}的${part}！`;
     desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 造成 ${finalDamage} 点伤害。`;
 
-    // 4. Apply Damage to Pool
     let poolName = isPlayerAttacking ? 'enemyDamagePool' : 'playerDamagePool';
     state.combatState[poolName] += finalDamage;
 
-    // 5. Check Threshold
     let newMarks = 0;
     while (state.combatState[poolName] >= MAX_HEALTH_POOL) {
       state.combatState[poolName] -= MAX_HEALTH_POOL;
@@ -246,7 +268,7 @@ async function resolveAttack(attacker, defender, isPlayerAttacking) {
     desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 被化解了！`;
   }
 
-  addLog(desc, 'combat');
+  addCombatLog(desc);
 }
 
 function checkEndCombat() {
@@ -263,9 +285,26 @@ function checkEndCombat() {
 
 function endCombat(playerWin) {
   state.combatState.inCombat = false;
-  if (playerWin) {
-    addLog(`战斗结束！你战胜了 ${state.combatState.enemy.name}！`, 'combat');
-  } else {
-    addLog(`战斗结束！你不敌 ${state.combatState.enemy.name}，败下阵来...`, 'combat');
+  state.combatState.skipping = false;
+
+  const resultText = playerWin ? '战胜' : '败给';
+  const enemyName = state.combatState.enemy.name;
+
+  const summary = `战斗结束！你${resultText}了 ${enemyName}！`;
+  addLog(summary, 'combat'); // Main log
+  addCombatLog(summary); // Battle log
+
+  // Save Battle Report
+  const report = {
+    id: Date.now(),
+    timestamp: new Date().toLocaleString(),
+    enemyName: enemyName,
+    result: playerWin ? '胜利' : '失败',
+    logs: [...state.combatState.currentBattleLogs]
+  };
+
+  state.battleReports.unshift(report);
+  if (state.battleReports.length > 10) {
+    state.battleReports.pop();
   }
 }
