@@ -2,6 +2,46 @@
   <div class="container">
     <div class="header">
       <h1 class="title">放置随机武侠</h1>
+    </div>
+
+    <!-- MAIN MENU VIEW -->
+    <div v-if="globalState.activeSlotIndex === -1" class="menu-view">
+      <div class="menu-title">角色选择</div>
+      <div class="slot-list">
+        <div
+          v-for="(slot, idx) in globalState.slots"
+          :key="idx"
+          class="slot-item"
+        >
+          <div v-if="slot" class="slot-content" @click="handleLoad(idx)">
+            <div class="slot-name">{{ slot.player.name }}</div>
+            <div class="slot-info">
+              上次游玩: {{ new Date(slot.lastPlayed).toLocaleString() }}
+            </div>
+          </div>
+          <div v-else class="slot-content empty" @click="handleCreate(idx)">
+            <span class="empty-text">[ 空存档 - 点击创建 ]</span>
+          </div>
+
+          <button
+            v-if="slot"
+            class="delete-btn"
+            @click.stop="handleDelete(idx)"
+          >
+            删除
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME VIEW -->
+    <div v-else class="game-view">
+
+      <!-- Back to Menu (Top Right Absolute) -->
+      <button class="back-menu-btn" @click="handleBackToMenu">
+        返回主页
+      </button>
+
       <div class="player-card">
         <h2 class="name">{{ state.player.name }}</h2>
 
@@ -49,133 +89,161 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="actions">
-      <button
-        @click="handleMeditate"
-        :disabled="state.combatState.inCombat"
-        class="btn train-btn"
-      >
-        <span class="btn-text">运转周天</span>
-        <span class="btn-sub">提升真气</span>
-      </button>
-
-      <button
-        @click="handleFight"
-        :disabled="state.combatState.inCombat"
-        class="btn fight-btn"
-      >
-        <span class="btn-text">战斗</span>
-        <span class="btn-sub">寻找对手</span>
-      </button>
-
-      <button
-        v-if="state.battleReports.length > 0"
-        @click="showReportList = true"
-        class="btn report-btn"
-      >
-        <span class="btn-text">战报</span>
-        <span class="btn-sub">回顾往昔</span>
-      </button>
-    </div>
-
-    <div v-if="state.combatState.inCombat" class="combat-status">
-      <div class="status-row">
-        <span>你 ({{ state.combatState.playerMarks }}/12)</span>
-        <span class="vs">VS</span>
-        <span>{{ state.combatState.enemy.name }} ({{ state.combatState.enemyMarks }}/12)</span>
-      </div>
-
-      <!-- Mark Progress Bars (Health) -->
-      <div class="bars">
-        <div class="hp-bar player-hp" :style="{ width: (1 - state.combatState.playerMarks/12)*100 + '%' }"></div>
-        <div class="hp-bar enemy-hp" :style="{ width: (1 - state.combatState.enemyMarks/12)*100 + '%' }"></div>
-      </div>
-
-      <!-- Damage Pool Progress (Sub-bars) -->
-      <div class="pool-row">
-        <span class="pool-label">伤势积压: {{ state.combatState.playerDamagePool.toFixed(0) }}/200</span>
-        <span class="pool-label">伤势积压: {{ state.combatState.enemyDamagePool.toFixed(0) }}/200</span>
-      </div>
-
-      <!-- Skip Button -->
-      <button class="skip-btn" @click="handleSkip" v-if="!state.combatState.skipping">
-        >> 直接结束
-      </button>
-      <div v-else class="skip-text">快速结算中...</div>
-    </div>
-
-    <div class="logs-container">
-      <div class="logs-header">江湖阅历</div>
-      <div class="logs-list" ref="logsContainer">
-        <div
-          v-for="log in state.logs"
-          :key="log.id"
-          class="log-item"
-          :class="log.type"
+      <div class="actions">
+        <button
+          @click="handleMeditate"
+          :disabled="state.combatState.inCombat"
+          class="btn train-btn"
         >
-          <span class="time">[{{ log.timestamp }}]</span>
-          <span class="text">{{ log.text }}</span>
-        </div>
-      </div>
-    </div>
+          <span class="btn-text">运转周天</span>
+          <span class="btn-sub">提升真气</span>
+        </button>
 
-    <!-- Battle Report List Modal -->
-    <div v-if="showReportList" class="modal-overlay" @click.self="showReportList = false">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>近期战报</h3>
-          <button class="close-btn" @click="showReportList = false">X</button>
+        <button
+          @click="handleFight"
+          :disabled="state.combatState.inCombat"
+          class="btn fight-btn"
+        >
+          <span class="btn-text">战斗</span>
+          <span class="btn-sub">寻找对手</span>
+        </button>
+
+        <button
+          v-if="state.battleReports.length > 0"
+          @click="showReportList = true"
+          class="btn report-btn"
+        >
+          <span class="btn-text">战报</span>
+          <span class="btn-sub">回顾往昔</span>
+        </button>
+      </div>
+
+      <div v-if="state.combatState.inCombat" class="combat-status">
+        <div class="status-row">
+          <span>你 ({{ state.combatState.playerMarks }}/12)</span>
+          <span class="vs">VS</span>
+          <span>{{ state.combatState.enemy.name }} ({{ state.combatState.enemyMarks }}/12)</span>
         </div>
-        <div class="report-list">
-          <div
-            v-for="report in state.battleReports"
-            :key="report.id"
-            class="report-item"
-            @click="openReport(report)"
-          >
-            <span class="report-time">{{ report.timestamp }}</span>
-            <span class="report-enemy">VS {{ report.enemyName }}</span>
-            <span class="report-result" :class="{ win: report.result === '胜利', loss: report.result !== '胜利' }">
-              {{ report.result }}
-            </span>
+
+        <div class="bars">
+          <div class="hp-bar player-hp" :style="{ width: (1 - state.combatState.playerMarks/12)*100 + '%' }"></div>
+          <div class="hp-bar enemy-hp" :style="{ width: (1 - state.combatState.enemyMarks/12)*100 + '%' }"></div>
+        </div>
+
+        <div class="pool-row">
+          <span class="pool-label">伤势积压: {{ state.combatState.playerDamagePool.toFixed(0) }}/200</span>
+          <span class="pool-label">伤势积压: {{ state.combatState.enemyDamagePool.toFixed(0) }}/200</span>
+        </div>
+
+        <!-- Live Combat Log (Last few entries) -->
+        <div class="live-combat-log" ref="liveLogContainer">
+          <div v-for="(log, idx) in state.combatState.currentBattleLogs.slice(-3)" :key="idx" class="live-log-item">
+            {{ log.text }}
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Battle Detail Modal -->
-    <div v-if="selectedReport" class="modal-overlay" @click.self="selectedReport = null">
-      <div class="modal detail-modal">
-        <div class="modal-header">
-          <h3>战报详情 - {{ selectedReport.result }}</h3>
-          <button class="close-btn" @click="selectedReport = null">X</button>
-        </div>
-        <div class="detail-logs">
-          <div v-for="(log, idx) in selectedReport.logs" :key="idx" class="log-item combat">
+        <button class="skip-btn" @click="handleSkip" v-if="!state.combatState.skipping">
+          >> 直接结束
+        </button>
+        <div v-else class="skip-text">快速结算中...</div>
+      </div>
+
+      <div class="logs-container">
+        <div class="logs-header">江湖阅历</div>
+        <div class="logs-list" ref="logsContainer">
+          <div
+            v-for="log in state.logs"
+            :key="log.id"
+            class="log-item"
+            :class="log.type"
+          >
             <span class="time">[{{ log.timestamp }}]</span>
             <span class="text">{{ log.text }}</span>
           </div>
         </div>
       </div>
-    </div>
+
+      <!-- Battle Report List Modal -->
+      <div v-if="showReportList" class="modal-overlay" @click.self="showReportList = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>近期战报</h3>
+            <button class="close-btn" @click="showReportList = false">X</button>
+          </div>
+          <div class="report-list">
+            <div
+              v-for="report in state.battleReports"
+              :key="report.id"
+              class="report-item"
+              @click="openReport(report)"
+            >
+              <span class="report-time">{{ report.timestamp }}</span>
+              <span class="report-enemy">VS {{ report.enemyName }}</span>
+              <span class="report-result" :class="{ win: report.result === '胜利', loss: report.result !== '胜利' }">
+                {{ report.result }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Battle Detail Modal -->
+      <div v-if="selectedReport" class="modal-overlay" @click.self="selectedReport = null">
+        <div class="modal detail-modal">
+          <div class="modal-header">
+            <h3>战报详情 - {{ selectedReport.result }}</h3>
+            <button class="close-btn" @click="selectedReport = null">X</button>
+          </div>
+          <div class="detail-logs">
+            <div v-for="(log, idx) in selectedReport.logs" :key="idx" class="log-item combat">
+              <span class="time">[{{ log.timestamp }}]</span>
+              <span class="text">{{ log.text }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div> <!-- End Game View -->
 
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue';
-import { state, effectiveStats, initGame, meditate, allocateQi, startCombat, skipCombat } from './gameLogic';
+import {
+  state, globalState, effectiveStats,
+  initGlobal, createSaveInSlot, loadSlot, deleteSlot, exitToMenu,
+  meditate, allocateQi, startCombat, skipCombat
+} from './gameLogic';
 
 const logsContainer = ref(null);
 const showReportList = ref(false);
 const selectedReport = ref(null);
 
 onMounted(() => {
-  initGame();
+  initGlobal();
 });
 
+// Menu Actions
+function handleCreate(idx) {
+  createSaveInSlot(idx);
+}
+
+function handleLoad(idx) {
+  loadSlot(idx);
+}
+
+function handleDelete(idx) {
+  if (confirm("确定要删除这个存档吗？删除后无法恢复！")) {
+    deleteSlot(idx);
+  }
+}
+
+function handleBackToMenu() {
+  exitToMenu();
+}
+
+// Game Actions
 function handleMeditate() {
   meditate();
 }
@@ -209,7 +277,7 @@ function openReport(report) {
 
 body {
   margin: 0;
-  font-family: "Songti SC", "SimSun", serif; /* Wuxia font style */
+  font-family: "Songti SC", "SimSun", "Microsoft YaHei", "PingFang SC", sans-serif; /* Expanded Font Stack */
   background-color: #2c2c2c;
   color: var(--text-color);
   display: flex;
@@ -250,6 +318,99 @@ body {
   margin: 0 0 12px 0;
   font-weight: bold;
   letter-spacing: 4px;
+}
+
+/* Menu View */
+.menu-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.menu-title {
+  font-size: 18px;
+  margin-bottom: 16px;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.slot-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slot-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slot-content {
+  flex: 1;
+  border: 2px solid var(--border-color);
+  padding: 16px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.2);
+  transition: all 0.2s;
+}
+
+.slot-content:hover {
+  background: rgba(255,255,255,0.4);
+  transform: translateY(-2px);
+}
+
+.slot-content.empty {
+  border-style: dashed;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0.6;
+}
+
+.slot-name {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.slot-info {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.delete-btn {
+  background: var(--red-color);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 100%;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.back-menu-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 10px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+/* Game View Styles (Existing) */
+.game-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .player-card {
@@ -421,6 +582,24 @@ body {
 }
 .player-hp { background: #4caf50; }
 .enemy-hp { background: #f44336; margin-left: auto; }
+
+.live-combat-log {
+  margin-top: 8px;
+  padding: 4px;
+  background: rgba(0,0,0,0.05);
+  height: 60px;
+  overflow: hidden;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.live-log-item {
+  color: var(--red-color);
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
 
 .skip-btn {
   margin-top: 8px;
