@@ -321,6 +321,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  overflow: hidden; /* Fix: Force containment */
   padding: 16px;
   box-sizing: border-box;
   border: 4px double var(--border-color);
@@ -433,6 +434,8 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0; /* Fix: Allow flex shrinking */
+  overflow: hidden; /* Fix: Prevent overflow */
 }
 
 .player-card {
@@ -561,6 +564,7 @@ body {
   display: flex;
   gap: 16px;
   margin-bottom: 16px;
+  flex-shrink: 0; /* Prevent shrinking */
 }
 
 .btn {
@@ -612,6 +616,7 @@ body {
   border: 1px dashed var(--red-color);
   display: flex;
   flex-direction: column;
+  flex-shrink: 0; /* Prevent shrinking */
 }
 
 .status-row {
@@ -688,6 +693,7 @@ body {
   flex-direction: column;
   border-top: 2px solid var(--border-color);
   overflow: hidden; /* For scrolling inside */
+  min-height: 0; /* Fix: Crucial for nested flex scrolling */
 }
 
 .logs-header {
