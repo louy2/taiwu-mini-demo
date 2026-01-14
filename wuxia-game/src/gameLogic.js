@@ -14,6 +14,17 @@ const BASE_DAMAGE = 9;
 const MAX_HEALTH_POOL = 200;
 const MAX_QI = 280;
 
+// Neili Types Definition
+// [Type Name]: [Power/Parry, Pen/Res, QiBreach/Guard]
+export const NEILI_TYPES = {
+  '金刚': [10, 16, 4],
+  '紫霞': [4, 6, 14],
+  '玄阴': [4, 4, 16],
+  '纯阳': [6, 10, 10],
+  '归元': [6, 14, 6],
+  '混元': [6, 10, 10],
+};
+
 // Initial Player State Template
 const defaultPlayerState = {
   name: '',
@@ -26,6 +37,8 @@ const defaultPlayerState = {
   qi: 80,
   qiDestruction: 0,
   qiProtection: 0,
+  neiliType: '混元', // Default
+  internalRatio: 0, // 0-100 (Internal %), Default 0
 };
 
 // Global App State
@@ -55,13 +68,16 @@ export const state = reactive({
 // Computed Effective Stats
 export const effectiveStats = computed(() => {
   const p = state.player;
+  const multipliers = NEILI_TYPES[p.neiliType] || NEILI_TYPES['混元'];
+
+  // multipliers: [Power/Parry, Pen/Res, QiBreach/Guard]
   return {
-    power: p.basePower + (p.qiDestruction * 6),
-    parry: p.baseParry + (p.qiProtection * 6),
-    penetration: p.basePenetration + (p.qiDestruction * 6),
-    resistance: p.baseResistance + (p.qiProtection * 6),
-    qiBreach: p.baseQiBreach + (p.qiDestruction * 10),
-    qiGuard: p.baseQiGuard + (p.qiProtection * 10),
+    power: p.basePower + (p.qiDestruction * multipliers[0]),
+    parry: p.baseParry + (p.qiProtection * multipliers[0]),
+    penetration: p.basePenetration + (p.qiDestruction * multipliers[1]),
+    resistance: p.baseResistance + (p.qiProtection * multipliers[1]),
+    qiBreach: p.baseQiBreach + (p.qiDestruction * multipliers[2]),
+    qiGuard: p.baseQiGuard + (p.qiProtection * multipliers[2]),
   };
 });
 
@@ -122,6 +138,10 @@ export function loadSlot(slotIndex) {
 
   // Load into active state
   state.player = JSON.parse(JSON.stringify(slotData.player));
+  // Migration: Ensure new fields exist
+  if (!state.player.neiliType) state.player.neiliType = '混元';
+  if (state.player.internalRatio === undefined) state.player.internalRatio = 0;
+
   state.logs = JSON.parse(JSON.stringify(slotData.logs));
   state.battleReports = JSON.parse(JSON.stringify(slotData.battleReports || []));
 
@@ -217,6 +237,12 @@ export function allocateQi(type, amount) {
   }
 }
 
+// Function to calculate Damage Decay based on ratio
+function calculateDecay(ratio) {
+  // y = 12.51 / (12.51 + x)
+  return 12.51 / (12.51 + ratio);
+}
+
 export async function startCombat() {
   if (state.combatState.inCombat) return;
 
@@ -231,14 +257,26 @@ export async function startCombat() {
     parry: randomInt(50, 60),
     penetration: randomInt(50, 60),
     resistance: randomInt(50, 60),
+    qiBreach: randomInt(50, 60),
+    qiGuard: randomInt(50, 60),
   };
+
+  // Enemy Neili Type? Let's random one
+  const enemyTypes = Object.keys(NEILI_TYPES);
+  const enemyType = randomElem(enemyTypes);
+  const enemyMultipliers = NEILI_TYPES[enemyType];
 
   const enemyStats = {
     name: enemyName,
-    power: eBase.power + (enemyDestruction * 6),
-    parry: eBase.parry + (enemyProtection * 6),
-    penetration: eBase.penetration + (enemyDestruction * 6),
-    resistance: eBase.resistance + (enemyProtection * 6),
+    neiliType: enemyType,
+    power: eBase.power + (enemyDestruction * enemyMultipliers[0]),
+    parry: eBase.parry + (enemyProtection * enemyMultipliers[0]),
+    penetration: eBase.penetration + (enemyDestruction * enemyMultipliers[1]),
+    resistance: eBase.resistance + (enemyProtection * enemyMultipliers[1]),
+    qiBreach: eBase.qiBreach + (enemyDestruction * enemyMultipliers[2]),
+    qiGuard: eBase.qiGuard + (enemyProtection * enemyMultipliers[2]),
+    // Enemy internal ratio? Randomize it
+    internalRatio: randomInt(0, 100),
   };
 
   state.combatState.inCombat = true;
@@ -253,7 +291,8 @@ export async function startCombat() {
 
   addLog(`遭遇了 ${enemyName}！战斗开始！`, 'combat');
   addCombatLog(`遭遇了 ${enemyName}！(真气:${enemyQi} - 摧破:${enemyDestruction}/护体:${enemyProtection})`);
-  addCombatLog(`敌方属性 - 力:${enemyStats.power} 卸:${enemyStats.parry} 破:${enemyStats.penetration} 御:${enemyStats.resistance}`);
+  addCombatLog(`敌方属性 [${enemyType}] - 力:${enemyStats.power} 卸:${enemyStats.parry}`);
+  addCombatLog(`内伤占比: ${enemyStats.internalRatio}%`);
 
   combatLoop();
 }
@@ -269,22 +308,26 @@ async function combatLoop() {
 
     if (!state.combatState.skipping) await new Promise(r => setTimeout(r, 1000));
 
-    const pStats = effectiveStats.value;
+    const pStats = {
+      ...effectiveStats.value,
+      name: state.player.name,
+      internalRatio: state.player.internalRatio
+    };
     const eStats = state.combatState.enemy;
 
     // Player attacks Enemy
-    resolveAttack(pStats, eStats, true, state.player.name, eStats.name);
+    resolveAttack(pStats, eStats, true);
     if (checkEndCombat()) break;
 
     if (!state.combatState.skipping) await new Promise(r => setTimeout(r, 1000));
 
     // Enemy attacks Player
-    resolveAttack(eStats, pStats, false, eStats.name, state.player.name);
+    resolveAttack(eStats, pStats, false);
     if (checkEndCombat()) break;
   }
 }
 
-function resolveAttack(attacker, defender, isPlayerAttacking, attName, defName) {
+function resolveAttack(attacker, defender, isPlayerAttacking) {
   let hitRate = 0;
   if (attacker.power > defender.parry) {
     hitRate = attacker.power / defender.parry;
@@ -297,19 +340,32 @@ function resolveAttack(attacker, defender, isPlayerAttacking, attName, defName) 
 
   const move = randomElem(MOVES);
   const part = randomElem(BODY_PARTS);
+  const attackerName = attacker.name;
+  const defenderName = defender.name;
 
   let desc = '';
   if (isHit) {
-    const ratio = attacker.penetration / defender.resistance;
-    const decay = 12.51 / (12.51 + ratio);
-    const damage = BASE_DAMAGE * ratio * decay;
-    const finalDamage = parseFloat(damage.toFixed(1));
+    // Damage Split
+    const intRatio = attacker.internalRatio / 100;
+    const extRatio = 1 - intRatio;
 
-    desc = `${attName}使出一招【${move}】，命中${defName}的${part}！`;
-    desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 造成 ${finalDamage} 点伤害。`;
+    // External Calc
+    const ratioExt = attacker.penetration / defender.resistance;
+    const decayExt = calculateDecay(ratioExt);
+    const dmgExt = BASE_DAMAGE * extRatio * ratioExt * decayExt;
+
+    // Internal Calc
+    const ratioInt = attacker.qiBreach / defender.qiGuard;
+    const decayInt = calculateDecay(ratioInt);
+    const dmgInt = BASE_DAMAGE * intRatio * ratioInt * decayInt;
+
+    const totalDmg = parseFloat((dmgExt + dmgInt).toFixed(1));
+
+    desc = `${attackerName}使出一招【${move}】，命中${defenderName}的${part}！`;
+    desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 造成 ${totalDmg} 伤害 (外${dmgExt.toFixed(1)}+内${dmgInt.toFixed(1)})`;
 
     let poolName = isPlayerAttacking ? 'enemyDamagePool' : 'playerDamagePool';
-    state.combatState[poolName] += finalDamage;
+    state.combatState[poolName] += totalDmg;
 
     let newMarks = 0;
     while (state.combatState[poolName] >= MAX_HEALTH_POOL) {
@@ -320,14 +376,14 @@ function resolveAttack(attacker, defender, isPlayerAttacking, attName, defName) 
     if (newMarks > 0) {
       if (isPlayerAttacking) {
         state.combatState.enemyMarks += newMarks;
-        desc += ` 对手伤势加重，增加${newMarks}个受伤标记 (累计 ${state.combatState.enemyMarks}/12)`;
+        desc += `，对手伤重 (+${newMarks}标记)`;
       } else {
         state.combatState.playerMarks += newMarks;
-        desc += ` 你伤势加重，增加${newMarks}个受伤标记 (累计 ${state.combatState.playerMarks}/12)`;
+        desc += `，你伤重 (+${newMarks}标记)`;
       }
     }
   } else {
-    desc = `${attName}使出一招【${move}】，意图攻击${defName}的${part}。`;
+    desc = `${attackerName}使出一招【${move}】，意图攻击${defenderName}的${part}。`;
     desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 被化解了！`;
   }
 

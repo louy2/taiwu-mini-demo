@@ -37,13 +37,22 @@
     <!-- GAME VIEW -->
     <div v-else class="game-view">
 
-      <!-- Back to Menu (Top Right Absolute) -->
       <button class="back-menu-btn" @click="handleBackToMenu">
         返回主页
       </button>
 
       <div class="player-card">
-        <h2 class="name">{{ state.player.name }}</h2>
+        <div class="card-header-row">
+          <h2 class="name">{{ state.player.name }}</h2>
+          <!-- Neili Type Selector -->
+          <select
+            v-model="state.player.neiliType"
+            class="neili-select"
+            :disabled="state.combatState.inCombat"
+          >
+            <option v-for="(v, k) in NEILI_TYPES" :key="k" :value="k">{{ k }}</option>
+          </select>
+        </div>
 
         <!-- Qi Section -->
         <div class="qi-section">
@@ -70,22 +79,35 @@
           </div>
         </div>
 
+        <!-- Damage Ratio Slider -->
+        <div class="ratio-control">
+          <div class="ratio-label">
+            <span>外伤 {{ 100 - state.player.internalRatio }}%</span>
+            <span>内伤 {{ state.player.internalRatio }}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="10"
+            v-model.number="state.player.internalRatio"
+            class="slider"
+            :disabled="state.combatState.inCombat"
+          >
+        </div>
+
         <div class="stats">
-          <div class="stat-item">
-            <span class="label">力道</span>
-            <span class="value">{{ effectiveStats.power }}</span>
+          <div class="stat-col">
+            <div class="stat-item"><span class="label">力道</span><span class="value">{{ effectiveStats.power }}</span></div>
+            <div class="stat-item"><span class="label">卸力</span><span class="value">{{ effectiveStats.parry }}</span></div>
           </div>
-          <div class="stat-item">
-            <span class="label">卸力</span>
-            <span class="value">{{ effectiveStats.parry }}</span>
+          <div class="stat-col">
+            <div class="stat-item"><span class="label">破体</span><span class="value">{{ effectiveStats.penetration }}</span></div>
+            <div class="stat-item"><span class="label">御体</span><span class="value">{{ effectiveStats.resistance }}</span></div>
           </div>
-          <div class="stat-item">
-            <span class="label">破体</span>
-            <span class="value">{{ effectiveStats.penetration }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="label">御体</span>
-            <span class="value">{{ effectiveStats.resistance }}</span>
+          <div class="stat-col">
+            <div class="stat-item"><span class="label">破气</span><span class="value">{{ effectiveStats.qiBreach }}</span></div>
+            <div class="stat-item"><span class="label">御气</span><span class="value">{{ effectiveStats.qiGuard }}</span></div>
           </div>
         </div>
       </div>
@@ -211,7 +233,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import {
-  state, globalState, effectiveStats,
+  state, globalState, effectiveStats, NEILI_TYPES,
   initGlobal, createSaveInSlot, loadSlot, deleteSlot, exitToMenu,
   meditate, allocateQi, startCombat, skipCombat
 } from './gameLogic';
@@ -277,7 +299,7 @@ function openReport(report) {
 
 body {
   margin: 0;
-  font-family: "Songti SC", "SimSun", "Microsoft YaHei", "PingFang SC", sans-serif; /* Expanded Font Stack */
+  font-family: "Songti SC", "SimSun", "Microsoft YaHei", "PingFang SC", sans-serif;
   background-color: #2c2c2c;
   color: var(--text-color);
   display: flex;
@@ -419,9 +441,24 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 .name {
-  margin: 0 0 8px 0;
+  margin: 0;
   font-size: 20px;
+}
+
+.neili-select {
+  font-family: inherit;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.5);
+  font-weight: bold;
 }
 
 /* Qi Section */
@@ -473,10 +510,34 @@ body {
   cursor: not-allowed;
 }
 
+/* Ratio Control */
+.ratio-control {
+  margin: 12px 0;
+  padding: 0 8px;
+}
+.ratio-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+.slider {
+  width: 100%;
+  cursor: pointer;
+}
+
 .stats {
   display: flex;
-  justify-content: space-around;
-  margin-top: 8px;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.stat-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
 }
 
 .stat-item {
@@ -491,7 +552,7 @@ body {
 }
 
 .value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
 }
 
