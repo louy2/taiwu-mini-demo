@@ -4,22 +4,48 @@
       <h1 class="title">放置随机武侠</h1>
       <div class="player-card">
         <h2 class="name">{{ state.player.name }}</h2>
+
+        <!-- Qi Section -->
+        <div class="qi-section">
+          <div class="qi-header">
+            <span>真气: {{ state.player.qi }}/280</span>
+            <span class="qi-sub">(已用: {{ state.player.qiDestruction + state.player.qiProtection }})</span>
+          </div>
+
+          <div class="qi-controls">
+            <div class="qi-control-row">
+              <span class="qi-label">摧破 ({{ state.player.qiDestruction }})</span>
+              <div class="qi-btns">
+                <button @click="handleAlloc('destruction', -1)" :disabled="state.player.qiDestruction <= 0">-</button>
+                <button @click="handleAlloc('destruction', 1)" :disabled="state.player.qiDestruction + state.player.qiProtection >= state.player.qi">+</button>
+              </div>
+            </div>
+            <div class="qi-control-row">
+              <span class="qi-label">护体 ({{ state.player.qiProtection }})</span>
+              <div class="qi-btns">
+                <button @click="handleAlloc('protection', -1)" :disabled="state.player.qiProtection <= 0">-</button>
+                <button @click="handleAlloc('protection', 1)" :disabled="state.player.qiDestruction + state.player.qiProtection >= state.player.qi">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="stats">
           <div class="stat-item">
             <span class="label">力道</span>
-            <span class="value">{{ state.player.power }}</span>
+            <span class="value">{{ effectiveStats.power }}</span>
           </div>
           <div class="stat-item">
             <span class="label">卸力</span>
-            <span class="value">{{ state.player.parry }}</span>
+            <span class="value">{{ effectiveStats.parry }}</span>
           </div>
           <div class="stat-item">
             <span class="label">破体</span>
-            <span class="value">{{ state.player.penetration }}</span>
+            <span class="value">{{ effectiveStats.penetration }}</span>
           </div>
           <div class="stat-item">
             <span class="label">御体</span>
-            <span class="value">{{ state.player.resistance }}</span>
+            <span class="value">{{ effectiveStats.resistance }}</span>
           </div>
         </div>
       </div>
@@ -27,12 +53,12 @@
 
     <div class="actions">
       <button
-        @click="handleTrain"
+        @click="handleMeditate"
         :disabled="state.combatState.inCombat"
         class="btn train-btn"
       >
-        <span class="btn-text">成长</span>
-        <span class="btn-sub">精进武艺</span>
+        <span class="btn-text">运转周天</span>
+        <span class="btn-sub">提升真气</span>
       </button>
 
       <button
@@ -140,7 +166,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue';
-import { state, initGame, train, startCombat, skipCombat } from './gameLogic';
+import { state, effectiveStats, initGame, meditate, allocateQi, startCombat, skipCombat } from './gameLogic';
 
 const logsContainer = ref(null);
 const showReportList = ref(false);
@@ -150,8 +176,12 @@ onMounted(() => {
   initGame();
 });
 
-function handleTrain() {
-  train();
+function handleMeditate() {
+  meditate();
+}
+
+function handleAlloc(type, amt) {
+  allocateQi(type, amt);
 }
 
 function handleFight() {
@@ -233,9 +263,59 @@ body {
   font-size: 20px;
 }
 
+/* Qi Section */
+.qi-section {
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px dashed var(--accent-color);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.qi-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.qi-sub {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.qi-controls {
+  display: flex;
+  justify-content: space-around;
+}
+
+.qi-control-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qi-label {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.qi-btns button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  cursor: pointer;
+  margin: 0 2px;
+}
+.qi-btns button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .stats {
   display: flex;
   justify-content: space-around;
+  margin-top: 8px;
 }
 
 .stat-item {
