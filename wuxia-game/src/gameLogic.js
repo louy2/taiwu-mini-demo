@@ -209,6 +209,14 @@ export function loadSlot(slotIndex) {
   state.logs = JSON.parse(JSON.stringify(slotData.logs));
   state.battleReports = JSON.parse(JSON.stringify(slotData.battleReports || []));
 
+  // Gift: 10x Draw Resource Pack
+  if (!state.player.receivedWelcomeGift) {
+    state.player.money += 1000;
+    state.player.prestige += 1000;
+    state.player.receivedWelcomeGift = true;
+    addLog('收到系统赠礼：10连抽资源包', 'system');
+  }
+
   // Reset combat state
   state.combatState = {
     inCombat: false,
@@ -259,7 +267,7 @@ watch(
 export function drawKungFu() {
   if (state.combatState.inCombat) return;
 
-  const cost = 1000;
+  const cost = 100;
   if (state.player.prestige < cost) {
     addLog(`威望不足 (需 ${cost})。`, 'system');
     return;
@@ -400,7 +408,7 @@ export function upgradeBuilding(type) {
 }
 
 export function drawEquipment() {
-  const cost = 500;
+  const cost = 100;
   if (state.player.money < cost) {
     addLog(`金钱不足 (需 ${cost})。`, 'system');
     return;
