@@ -401,6 +401,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  padding-bottom: 60px; /* Ensure bottom logs are visible above drawer handle */
+  min-height: 0;
   display: flex;
   flex-direction: column; /* Newest at top? default is top-down. unshift puts at top. */
   gap: 8px;
@@ -418,7 +420,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* === DRAWER === */
 .drawer-container {
-  flex: 0 0 auto;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
   background: #222;
   border-top: 1px solid var(--border-color);
   display: flex;
