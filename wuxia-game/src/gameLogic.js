@@ -66,6 +66,7 @@ const defaultPlayerState = {
     armor: null,
   },
   bag: [],
+  itemCounts: {}, // Stores "plus" level: { id: count }. 0 means +0 (default).
 
   resources: { shi: 0, tiqi: 0 },
 };
@@ -205,6 +206,7 @@ export function loadSlot(slotIndex) {
   if (!state.player.estate) state.player.estate = { marketLevel: 1, hallLevel: 1 };
   if (!state.player.gear) state.player.gear = { weapon: null, armor: null };
   if (!state.player.bag) state.player.bag = [];
+  if (!state.player.itemCounts) state.player.itemCounts = {};
 
   state.logs = JSON.parse(JSON.stringify(slotData.logs));
   state.battleReports = JSON.parse(JSON.stringify(slotData.battleReports || []));
@@ -276,8 +278,22 @@ export function drawKungFu() {
 
   const allIds = Object.keys(KUNGFU_DEFINITIONS);
   const randomId = randomElem(allIds);
-  state.player.inventory.push(randomId);
-  addLog(`消耗威望，寻访名师，习得【${KUNGFU_DEFINITIONS[randomId].name}】！`, 'growth');
+
+  const name = KUNGFU_DEFINITIONS[randomId].name;
+  let logStr = '';
+
+  if (state.player.inventory.includes(randomId)) {
+    // Duplicate
+    state.player.itemCounts[randomId] = (state.player.itemCounts[randomId] || 0) + 1;
+    logStr = `消耗威望，寻访名师，获得重复功法【${name} +${state.player.itemCounts[randomId]}】！`;
+  } else {
+    // New
+    state.player.inventory.push(randomId);
+    state.player.itemCounts[randomId] = 0;
+    logStr = `消耗威望，寻访名师，习得【${name}】！`;
+  }
+
+  addLog(logStr, 'growth');
 }
 
 export function equipKungFu(kfId) {
@@ -417,8 +433,23 @@ export function drawEquipment() {
 
   const allItems = Object.keys(ITEM_DEFINITIONS);
   const randomId = randomElem(allItems);
-  state.player.bag.push(randomId);
-  addLog(`在市集淘得一件【${ITEM_DEFINITIONS[randomId].name}】！`, 'growth');
+
+  const name = ITEM_DEFINITIONS[randomId].name;
+  const isOwned = state.player.bag.includes(randomId) ||
+                  state.player.gear.weapon === randomId ||
+                  state.player.gear.armor === randomId;
+
+  let logStr = '';
+  if (isOwned) {
+    state.player.itemCounts[randomId] = (state.player.itemCounts[randomId] || 0) + 1;
+    logStr = `在市集淘得一件重复装备【${name} +${state.player.itemCounts[randomId]}】！`;
+  } else {
+    state.player.bag.push(randomId);
+    state.player.itemCounts[randomId] = 0;
+    logStr = `在市集淘得一件【${name}】！`;
+  }
+
+  addLog(logStr, 'growth');
 }
 
 export function equipItem(itemId) {
