@@ -55,10 +55,11 @@ const defaultPlayerState = {
   // KungFu System
   inventory: [...DEFAULT_INVENTORY],
   equipment: {
-    internal: null,
+    internal: [], // Now an array of IDs
     destruction: [],
     protection: [],
   },
+  activeInternalId: null, // The internal used for Meditation/Neili Type
 
   // Physical Equipment
   gear: {
@@ -130,11 +131,22 @@ export const effectiveStats = computed(() => {
 
 // Computed Slots Capacity
 export const slotCapacity = computed(() => {
-  const internalId = state.player.equipment.internal;
-  if (internalId && KUNGFU_DEFINITIONS[internalId]) {
-    return KUNGFU_DEFINITIONS[internalId].slots;
+  const internals = state.player.equipment.internal;
+  let totalDest = 0;
+  let totalProt = 0;
+
+  // Base slots (optional, usually 0)
+
+  if (Array.isArray(internals)) {
+    internals.forEach(id => {
+      if (KUNGFU_DEFINITIONS[id]) {
+        totalDest += KUNGFU_DEFINITIONS[id].slots.destruction;
+        totalProt += KUNGFU_DEFINITIONS[id].slots.protection;
+      }
+    });
   }
-  return { destruction: 0, protection: 0 };
+
+  return { destruction: totalDest, protection: totalProt };
 });
 
 // --- HELPERS ---
@@ -197,7 +209,22 @@ export function loadSlot(slotIndex) {
   if (!state.player.neiliType) state.player.neiliType = '混元';
   if (state.player.internalRatio === undefined) state.player.internalRatio = 0;
   if (!state.player.inventory) state.player.inventory = [...DEFAULT_INVENTORY];
-  if (!state.player.equipment) state.player.equipment = { internal: null, destruction: [], protection: [] };
+  if (!state.player.equipment) state.player.equipment = { internal: [], destruction: [], protection: [] };
+
+  // Migrate internal from string to array
+  if (typeof state.player.equipment.internal === 'string') {
+     const oldInternal = state.player.equipment.internal;
+     state.player.equipment.internal = [oldInternal];
+     if (!state.player.activeInternalId) state.player.activeInternalId = oldInternal;
+  } else if (!Array.isArray(state.player.equipment.internal)) {
+     state.player.equipment.internal = [];
+  }
+
+  // Ensure activeInternalId is set if internals exist
+  if (!state.player.activeInternalId && state.player.equipment.internal.length > 0) {
+      state.player.activeInternalId = state.player.equipment.internal[0];
+  }
+
   if (!state.player.resources) state.player.resources = { shi: 0, tiqi: 0 };
 
   // Estate Migration
@@ -301,18 +328,28 @@ export function equipKungFu(kfId) {
   if (!def) return;
 
   if (def.type === 'internal') {
-    state.player.equipment.internal = kfId;
-    // Reset other slots if they exceed capacity?
-    // Ideally yes, but let's keep it simple for now or enforce on validation.
-    // Let's enforce simply: clear other slots to be safe or just truncate.
-    const cap = def.slots;
-    if (state.player.equipment.destruction.length > cap.destruction) {
-        state.player.equipment.destruction.length = cap.destruction;
+    // Check if already equipped
+    if (state.player.equipment.internal.includes(kfId)) {
+        addLog(`该内功已装备。`, 'system');
+        return;
     }
-    if (state.player.equipment.protection.length > cap.protection) {
-        state.player.equipment.protection.length = cap.protection;
+    // Check capacity (Max 3)
+    if (state.player.equipment.internal.length >= 3) {
+        addLog(`内功栏位已满 (上限3个)。`, 'system');
+        return;
     }
+
+    state.player.equipment.internal.push(kfId);
+
+    // Auto-activate if it's the first one
+    if (state.player.equipment.internal.length === 1) {
+        activateInternal(kfId);
+    }
+
     addLog(`装备了内功【${def.name}】。`);
+
+    // Check caps (should increase, so no need to truncate usually, but good practice to verify?
+    // Since we add slots, we don't need to truncate.)
   } else if (def.type === 'destruction') {
     const cap = slotCapacity.value.destruction;
     if (state.player.equipment.destruction.length < cap) {
@@ -334,14 +371,63 @@ export function equipKungFu(kfId) {
 
 export function unequipKungFu(type, index) {
     if (type === 'internal') {
-        state.player.equipment.internal = null;
-        state.player.neiliType = '混元'; // Reset neili on unequip? Or keep last?
-        // User said: "Equip internal + Meditate => Change Neili".
-        // If unequip, maybe keep current or reset? Reset seems logical.
+        const removedId = state.player.equipment.internal[index];
+        state.player.equipment.internal.splice(index, 1);
+
+        // If removed was active, reset active
+        if (state.player.activeInternalId === removedId) {
+            state.player.activeInternalId = null;
+            // Pick new active if available
+            if (state.player.equipment.internal.length > 0) {
+                activateInternal(state.player.equipment.internal[0]);
+            } else {
+                state.player.neiliType = '混元';
+            }
+        }
+
+        // Truncate other slots if capacity dropped below current usage
+        const cap = slotCapacity.value;
+        if (state.player.equipment.destruction.length > cap.destruction) {
+            state.player.equipment.destruction.length = cap.destruction;
+            addLog(`摧破栏位减少，部分功法自动卸下。`, 'system');
+        }
+        if (state.player.equipment.protection.length > cap.protection) {
+            state.player.equipment.protection.length = cap.protection;
+            addLog(`护体栏位减少，部分功法自动卸下。`, 'system');
+        }
+
         addLog(`卸下了内功。`);
     } else {
         state.player.equipment[type].splice(index, 1);
         addLog(`卸下了功法。`);
+    }
+}
+
+export function activateInternal(kfId) {
+    if (!state.player.equipment.internal.includes(kfId)) return;
+    state.player.activeInternalId = kfId;
+
+    // Update Neili Type immediately?
+    // User: "True Qi calculation follows Neili Type unchanged"
+    // Meditate updates it? Or "Equip internal + Meditate => Change Neili".
+    // Let's stick to: Meditate updates it, BUT setting active internal might imply intent.
+    // However, original logic was "Meditation updates Neili Type based on equipped".
+    // So now "Meditation updates Neili Type based on Active Internal".
+    // Does setting Active Internal change Neili Type immediately?
+    // "2 周天内功另外设定，真气计算跟随内力类型不变"
+    // This implies setting the "Meditation Internal" is the action.
+    // The Neili Type likely changes when you *Meditate* on it, OR immediately?
+    // Let's make it consistent with previous logic: `meditate` does the update.
+    // But UI might want to show the change?
+    // Let's just update `neiliType` immediately for better UX, or let meditate do it.
+    // Previous `meditate` code: `if (state.player.neiliType !== newType) { ... addLog ... }`
+    // So it happened during meditation. I will keep that.
+
+    // Actually, let's update immediately so the UI badge updates.
+    const def = KUNGFU_DEFINITIONS[kfId];
+    if (def) {
+        state.player.neiliType = def.neiliType;
+        addLog(`将周天运转内功切换为【${def.name}】。`, 'system');
     }
 }
 
@@ -369,13 +455,13 @@ function addCombatLog(text) {
 export function meditate() {
   if (state.combatState.inCombat) return;
 
-  // Update Neili Type based on equipped Internal KungFu
-  const equippedInternal = state.player.equipment.internal;
-  if (equippedInternal && KUNGFU_DEFINITIONS[equippedInternal]) {
-    const newType = KUNGFU_DEFINITIONS[equippedInternal].neiliType;
+  // Update Neili Type based on Active Internal KungFu
+  const activeId = state.player.activeInternalId;
+  if (activeId && KUNGFU_DEFINITIONS[activeId]) {
+    const newType = KUNGFU_DEFINITIONS[activeId].neiliType;
     if (state.player.neiliType !== newType) {
         state.player.neiliType = newType;
-        addLog(`运转【${KUNGFU_DEFINITIONS[equippedInternal].name}】，内力属性转为【${newType}】！`, 'growth');
+        addLog(`运转【${KUNGFU_DEFINITIONS[activeId].name}】，内力属性转为【${newType}】！`, 'growth');
     }
   }
 
