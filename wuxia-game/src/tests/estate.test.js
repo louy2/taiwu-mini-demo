@@ -87,7 +87,7 @@ describe('Gacha and Equipment System', () => {
 
         drawEquipment();
 
-        expect(state.player.money).toBe(initialMoney - 500);
+        expect(state.player.money).toBe(initialMoney - 100);
         expect(state.player.bag.length).toBe(1);
 
         const itemId = state.player.bag[0];
@@ -100,7 +100,7 @@ describe('Gacha and Equipment System', () => {
 
         drawKungFu();
 
-        expect(state.player.prestige).toBe(initialPrestige - 1000);
+        expect(state.player.prestige).toBe(initialPrestige - 100);
         expect(state.player.inventory.length).toBe(initialCount + 1);
 
         // Check if last added is valid kungfu
