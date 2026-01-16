@@ -273,12 +273,13 @@ export function unequipKungFu(type, index) {
 
 // --- GAME ACTIONS ---
 
-function addLog(text, type = 'system') {
+function addLog(text, type = 'system', data = null) {
   const logEntry = {
     id: Date.now() + Math.random(),
     text,
     type,
     timestamp: new Date().toLocaleTimeString(),
+    ...data
   };
   state.logs.unshift(logEntry);
 }
@@ -642,10 +643,6 @@ function endCombat(playerWin) {
   const resultText = playerWin ? '战胜' : '败给';
   const enemyName = state.combatState.enemy.name;
 
-  const summary = `战斗结束！你${resultText}了 ${enemyName}！`;
-  addLog(summary, 'combat');
-  addCombatLog(summary);
-
   const report = {
     id: Date.now(),
     timestamp: new Date().toLocaleString(),
@@ -658,4 +655,8 @@ function endCombat(playerWin) {
   if (state.battleReports.length > 10) {
     state.battleReports.pop();
   }
+
+  const summary = `战斗结束！你${resultText}了 ${enemyName}！`;
+  addCombatLog(summary);
+  addLog(summary, 'combat', { reportId: report.id });
 }
