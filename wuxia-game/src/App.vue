@@ -171,9 +171,17 @@
           <!-- TAB: KUNGFU -->
           <div v-if="drawerTab === 'kungfu'" class="tab-pane kungfu-pane">
             <div class="kf-section">
-              <div class="kf-header">内功</div>
-              <div class="kf-slot full" @click="openInventory('internal')">
-                {{ getEquippedName('internal') || '[ 未装备 - 点击选择 ]' }}
+              <div class="kf-header">内功 ({{state.player.equipment.internal.length}}/3)</div>
+              <div class="kf-list">
+                <div v-for="(id, idx) in state.player.equipment.internal" :key="'i'+idx"
+                     class="kf-chip internal"
+                     :class="{ active: state.player.activeInternalId === id }"
+                     @click="handleActivate(id)">
+                  {{ getKfName(id) }}
+                  <span v-if="state.player.activeInternalId === id" class="badge-mini">运</span>
+                  <span class="x-btn-mini" @click.stop="handleUnequip('internal', idx)">×</span>
+                </div>
+                <div v-if="state.player.equipment.internal.length < 3" class="kf-chip add" @click="openInventory('internal')">+</div>
               </div>
             </div>
             <div class="kf-section">
@@ -290,7 +298,7 @@ import {
   initGlobal, createSaveInSlot, loadSlot, deleteSlot, exitToMenu,
   meditate, allocateQi, allocateAllQi, allocateEvenly, resetQiAllocation,
   startCombat, skipCombat,
-  drawKungFu, equipKungFu, unequipKungFu,
+  drawKungFu, equipKungFu, unequipKungFu, activateInternal,
   upgradeBuilding, drawEquipment, equipItem, unequipItem
 } from './gameLogic';
 import { KUNGFU_DEFINITIONS } from './data/kungfu';
@@ -365,6 +373,10 @@ function handleAllocEven() { allocateEvenly(); }
 function handleResetQi() { resetQiAllocation(); }
 function handleUpgrade(type) { upgradeBuilding(type); }
 function handleDrawEquip() { drawEquipment(); }
+
+function handleActivate(id) {
+    if(!state.combatState.inCombat) activateInternal(id);
+}
 
 function openReportById(id) {
   const r = state.battleReports.find(x => x.id === id);
@@ -566,9 +578,13 @@ input[type=range] { width: 100%; }
 .kf-list { display: flex; gap: 8px; flex-wrap: wrap; }
 .kf-chip {
   padding: 6px 10px; background: #333; font-size: 12px; border-radius: 12px; cursor: pointer;
-  display: flex; align-items: center;
+  display: flex; align-items: center; position: relative;
 }
+.kf-chip.internal.active { border: 1px solid var(--accent-color); color: var(--accent-color); }
 .kf-chip.add { background: transparent; border: 1px dashed #666; }
+.badge-mini { font-size: 10px; background: var(--accent-color); color: #000; padding: 0 4px; border-radius: 4px; margin-left: 6px; }
+.x-btn-mini { margin-left: 6px; color: #666; font-weight: bold; }
+.x-btn-mini:hover { color: var(--red-color); }
 
 /* Qi Pane */
 .qi-pane { display: flex; flex-direction: column; gap: 16px; padding-top: 24px; }

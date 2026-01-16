@@ -3,6 +3,7 @@ import {
   state, globalState, effectiveStats, slotCapacity,
   resetState, initGlobal, createSaveInSlot, loadSlot, deleteSlot,
   meditate, equipKungFu, unequipKungFu, allocateQi,
+  activateInternal,
   startCombat, resolvePlayerAttack, resolveEnemyAttack, checkEndCombat,
   calculateDecay, NEILI_TYPES
 } from '../gameLogic';
@@ -82,12 +83,11 @@ describe('核心游戏逻辑 (Game Logic)', () => {
     it('装备内功并冥想时应改变内力属性', () => {
       state.player.neiliType = '混元';
 
-      // Mock an Internal KungFu
-      const kfId = 'internal_zixia'; // Assume this exists in data or needs mocking.
-      // We will look for a key with type 'internal'
       const internalId = Object.keys(KUNGFU_DEFINITIONS).find(k => KUNGFU_DEFINITIONS[k].type === 'internal');
       if (internalId) {
-          state.player.equipment.internal = internalId;
+          state.player.equipment.internal.push(internalId);
+          activateInternal(internalId); // Explicitly active
+
           const expectedType = KUNGFU_DEFINITIONS[internalId].neiliType;
 
           // Force difference
@@ -96,6 +96,45 @@ describe('核心游戏逻辑 (Game Logic)', () => {
           meditate();
           expect(state.player.neiliType).toBe(expectedType);
       }
+    });
+
+    it('应支持装备多个内功并叠加槽位', () => {
+        const internals = Object.keys(KUNGFU_DEFINITIONS).filter(k => KUNGFU_DEFINITIONS[k].type === 'internal');
+        if (internals.length >= 2) {
+            const int1 = internals[0];
+            const int2 = internals[1];
+
+            equipKungFu(int1);
+            equipKungFu(int2);
+
+            expect(state.player.equipment.internal).toHaveLength(2);
+            expect(state.player.equipment.internal).toContain(int1);
+            expect(state.player.equipment.internal).toContain(int2);
+
+            const slots1 = KUNGFU_DEFINITIONS[int1].slots;
+            const slots2 = KUNGFU_DEFINITIONS[int2].slots;
+
+            expect(slotCapacity.value.destruction).toBe(slots1.destruction + slots2.destruction);
+            expect(slotCapacity.value.protection).toBe(slots1.protection + slots2.protection);
+        }
+    });
+
+    it('应限制内功装备上限为3个', () => {
+        // Mock pushing to avoid needing 4 valid definitions if not available
+        state.player.equipment.internal = ['a', 'b', 'c'];
+        const internalId = Object.keys(KUNGFU_DEFINITIONS).find(k => KUNGFU_DEFINITIONS[k].type === 'internal');
+
+        equipKungFu(internalId); // Should fail
+        expect(state.player.equipment.internal).toHaveLength(3);
+    });
+
+    it('应防止重复装备同一内功', () => {
+        const internalId = Object.keys(KUNGFU_DEFINITIONS).find(k => KUNGFU_DEFINITIONS[k].type === 'internal');
+        if (internalId) {
+            equipKungFu(internalId);
+            equipKungFu(internalId);
+            expect(state.player.equipment.internal).toHaveLength(1);
+        }
     });
 
     it('应正确分配真气', () => {
