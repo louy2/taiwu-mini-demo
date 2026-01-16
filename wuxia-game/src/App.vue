@@ -204,6 +204,7 @@
                  <button @click="handleAlloc('destruction', -1)">-</button>
                  <span class="qi-val">{{ state.player.qiDestruction }}</span>
                  <button @click="handleAlloc('destruction', 1)">+</button>
+                 <button class="qi-max-btn" @click="handleAllocAll('destruction')">全</button>
                </div>
              </div>
              <div class="qi-row">
@@ -212,9 +213,14 @@
                  <button @click="handleAlloc('protection', -1)">-</button>
                  <span class="qi-val">{{ state.player.qiProtection }}</span>
                  <button @click="handleAlloc('protection', 1)">+</button>
+                 <button class="qi-max-btn" @click="handleAllocAll('protection')">全</button>
                </div>
              </div>
              <div class="qi-remain">剩余可用: {{ state.player.qi - state.player.qiDestruction - state.player.qiProtection }}</div>
+             <div class="qi-actions">
+               <button class="qi-btn" @click="handleAllocEven">平均分配</button>
+               <button class="qi-btn reset" @click="handleResetQi">重置</button>
+             </div>
           </div>
 
         </div>
@@ -282,7 +288,8 @@ import { onMounted, ref, computed, reactive, watch } from 'vue';
 import {
   state, globalState, effectiveStats, slotCapacity,
   initGlobal, createSaveInSlot, loadSlot, deleteSlot, exitToMenu,
-  meditate, allocateQi, startCombat, skipCombat,
+  meditate, allocateQi, allocateAllQi, allocateEvenly, resetQiAllocation,
+  startCombat, skipCombat,
   drawKungFu, equipKungFu, unequipKungFu,
   upgradeBuilding, drawEquipment, equipItem, unequipItem
 } from './gameLogic';
@@ -353,6 +360,9 @@ function handleSkip() { skipCombat(); }
 function handleMeditate() { meditate(); }
 function handleGachaKungFu() { drawKungFu(); }
 function handleAlloc(t, v) { allocateQi(t, v); }
+function handleAllocAll(t) { allocateAllQi(t); }
+function handleAllocEven() { allocateEvenly(); }
+function handleResetQi() { resetQiAllocation(); }
 function handleUpgrade(type) { upgradeBuilding(type); }
 function handleDrawEquip() { drawEquipment(); }
 
@@ -561,8 +571,12 @@ input[type=range] { width: 100%; }
 .qi-row { display: flex; justify-content: space-between; align-items: center; }
 .qi-ctrl { display: flex; align-items: center; gap: 12px; }
 .qi-ctrl button { width: 30px; height: 30px; background: #333; border-radius: 50%; font-weight: bold; font-size: 18px; line-height: 1; }
+.qi-ctrl button.qi-max-btn { width: 30px; height: 30px; background: #444; color: #aaa; font-size: 12px; border-radius: 4px; }
 .qi-val { font-size: 18px; font-weight: bold; width: 30px; text-align: center; }
 .qi-remain { text-align: center; color: var(--accent-color); font-size: 12px; margin-top: 12px; }
+.qi-actions { display: flex; justify-content: center; gap: 16px; margin-top: 8px; }
+.qi-btn { padding: 8px 16px; background: #333; border-radius: 4px; font-size: 12px; border: 1px solid #444; }
+.qi-btn.reset { color: var(--red-color); border-color: var(--red-color); background: rgba(239,83,80,0.1); }
 
 /* Estate Pane */
 .estate-pane { display: flex; flex-direction: column; gap: 16px; }
