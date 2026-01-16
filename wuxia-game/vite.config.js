@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
@@ -5,4 +6,9 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   base: './',
   plugins: [vue()],
+  test: {
+    environment: 'happy-dom',
+    globals: true, // Allows using describe, it, expect without imports
+    include: ['**/*.test.js'],
+  },
 })

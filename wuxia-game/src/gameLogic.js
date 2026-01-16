@@ -328,8 +328,31 @@ export function allocateQi(type, amount) {
   }
 }
 
+// Helper to reset state for testing
+export function resetState() {
+  // Reset Global
+  globalState.slots = [null, null, null];
+  globalState.activeSlotIndex = -1;
+
+  // Reset Active Player
+  Object.assign(state.player, JSON.parse(JSON.stringify(defaultPlayerState)));
+  state.logs = [];
+  state.battleReports = [];
+  state.combatState = {
+    inCombat: false,
+    skipping: false,
+    enemy: null,
+    playerMarks: 0,
+    enemyMarks: 0,
+    playerDamagePool: 0,
+    enemyDamagePool: 0,
+    round: 0,
+    currentBattleLogs: [],
+  };
+}
+
 // Function to calculate Damage Decay based on ratio
-function calculateDecay(ratio) {
+export function calculateDecay(ratio) {
   // y = 12.51 / (12.51 + x)
   return 12.51 / (12.51 + ratio);
 }
@@ -425,7 +448,7 @@ async function combatLoop() {
   }
 }
 
-function resolvePlayerAttack(attacker, defender) {
+export function resolvePlayerAttack(attacker, defender) {
   // Check for Destruction Skill
   const destructionSkills = state.player.equipment.destruction;
   let skill = null;
@@ -524,7 +547,7 @@ function resolvePlayerAttack(attacker, defender) {
   addCombatLog(desc);
 }
 
-function resolveEnemyAttack(attacker, defender) {
+export function resolveEnemyAttack(attacker, defender) {
   // Check Player Protection Skill
   const protectionSkills = state.player.equipment.protection;
   let skill = null;
@@ -600,7 +623,7 @@ function resolveEnemyAttack(attacker, defender) {
   addCombatLog(desc);
 }
 
-function checkEndCombat() {
+export function checkEndCombat() {
   if (state.combatState.playerMarks >= 12) {
     endCombat(false);
     return true;
