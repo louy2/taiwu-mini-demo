@@ -524,7 +524,11 @@ export function resolvePlayerAttack(attacker, defender) {
 
     const totalDmg = parseFloat((dmgExt + dmgInt).toFixed(1));
 
-    desc += `${attackerName}使出一招【${move}】，命中${defenderName}的${part}！`;
+    if (skill) {
+      desc += `${attackerName}使出一招【${move}】，命中${defenderName}的${part}！`;
+    } else {
+      desc += `${attackerName}攻击${defenderName}的${part}！`;
+    }
     desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 造成 ${totalDmg} 伤害`;
 
     let poolName = 'enemyDamagePool';
@@ -541,7 +545,11 @@ export function resolvePlayerAttack(attacker, defender) {
         desc += `，对手伤重 (+${newMarks}标记)`;
     }
   } else {
-    desc += `${attackerName}使出一招【${move}】，意图攻击${defenderName}的${part}。`;
+    if (skill) {
+      desc += `${attackerName}使出一招【${move}】，意图攻击${defenderName}的${part}。`;
+    } else {
+      desc += `${attackerName}攻击${defenderName}的${part}。`;
+    }
     desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 被化解了！`;
   }
 
@@ -600,7 +608,7 @@ export function resolveEnemyAttack(attacker, defender) {
         totalDmg = parseFloat(reduced.toFixed(1));
     }
 
-    desc += `${attackerName}使出一招【${move}】，命中${defenderName}的${part}！`;
+    desc += `${attackerName}攻击${defenderName}的${part}！`;
     desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 造成 ${totalDmg} 伤害`;
 
     let poolName = 'playerDamagePool';
@@ -617,7 +625,7 @@ export function resolveEnemyAttack(attacker, defender) {
         desc += `，你伤重 (+${newMarks}标记)`;
     }
   } else {
-    desc += `${attackerName}使出一招【${move}】，意图攻击${defenderName}的${part}。`;
+    desc += `${attackerName}攻击${defenderName}的${part}。`;
     desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 被化解了！`;
   }
 
