@@ -462,6 +462,35 @@ export function allocateQi(type, amount) {
   }
 }
 
+export function allocateAllQi(type) {
+  const used = state.player.qiDestruction + state.player.qiProtection;
+  const remaining = state.player.qi - used;
+  if (remaining <= 0) return;
+
+  if (type === 'destruction') {
+    state.player.qiDestruction += remaining;
+  } else if (type === 'protection') {
+    state.player.qiProtection += remaining;
+  }
+}
+
+export function allocateEvenly() {
+  const used = state.player.qiDestruction + state.player.qiProtection;
+  const remaining = state.player.qi - used;
+  if (remaining <= 0) return;
+
+  const half = Math.floor(remaining / 2);
+  const remainder = remaining % 2;
+
+  state.player.qiDestruction += half + remainder;
+  state.player.qiProtection += half;
+}
+
+export function resetQiAllocation() {
+  state.player.qiDestruction = 0;
+  state.player.qiProtection = 0;
+}
+
 // Helper to reset state for testing
 export function resetState() {
   // Reset Global
