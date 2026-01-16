@@ -257,7 +257,12 @@
           </div>
           <div class="modal-body list">
              <div v-for="item in inventoryList" :key="item.id" class="list-item" @click="selectItem(item.id)">
-                <div class="item-title">{{ item.name }}</div>
+                <div class="item-title">
+                  {{ item.name }}
+                  <span v-if="state.player.itemCounts && state.player.itemCounts[item.id] > 0" style="color: #ff9800; font-size: 12px; margin-left: 4px;">
+                     +{{ state.player.itemCounts[item.id] }}
+                  </span>
+                </div>
 
                 <!-- KungFu Meta -->
                 <template v-if="item.neiliType || item.costShi || item.costTiQi">
@@ -388,12 +393,20 @@ function selectItem(id) {
 function handleUnequip(t, i) { if(!state.combatState.inCombat) unequipKungFu(t, i); }
 function handleUnequipItem(slot) { if(!state.combatState.inCombat) unequipItem(slot); }
 
-function getKfName(id) { return KUNGFU_DEFINITIONS[id]?.name || id; }
+function getKfName(id) {
+  const base = KUNGFU_DEFINITIONS[id]?.name || id;
+  const count = state.player.itemCounts?.[id] || 0;
+  return count > 0 ? `${base} +${count}` : base;
+}
 function getEquippedName(type) {
   const id = state.player.equipment[type];
   return id ? getKfName(id) : '';
 }
-function getItemName(id) { return ITEM_DEFINITIONS[id]?.name || id; }
+function getItemName(id) {
+  const base = ITEM_DEFINITIONS[id]?.name || id;
+  const count = state.player.itemCounts?.[id] || 0;
+  return count > 0 ? `${base} +${count}` : base;
+}
 function getEquippedItemName(slot) {
   const id = state.player.gear[slot];
   return id ? getItemName(id) : '';
