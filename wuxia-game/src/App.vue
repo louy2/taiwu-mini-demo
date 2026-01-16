@@ -97,6 +97,7 @@
           <!-- Drawer Tabs -->
           <div class="drawer-tabs">
             <button :class="{ active: drawerTab === 'action' }" @click="drawerTab = 'action'">行动</button>
+            <button :class="{ active: drawerTab === 'estate' }" @click="drawerTab = 'estate'">产业</button>
             <button :class="{ active: drawerTab === 'stats' }" @click="drawerTab = 'stats'">状态</button>
             <button :class="{ active: drawerTab === 'kungfu' }" @click="drawerTab = 'kungfu'">功法</button>
             <button :class="{ active: drawerTab === 'qi' }" @click="drawerTab = 'qi'">调息</button>
@@ -111,17 +112,48 @@
             </button>
             <button @click="handleMeditate" :disabled="state.combatState.inCombat" class="action-btn train">
               <span class="btn-l">运转周天</span>
-              <span class="btn-s">提升真气 / 切换内力</span>
-            </button>
-            <button @click="handleGacha" :disabled="state.combatState.inCombat" class="action-btn gacha">
-              <span class="btn-l">研读经书</span>
-              <span class="btn-s">领悟新功法</span>
+              <span class="btn-s">月份流转 / 产出资源</span>
             </button>
             <div class="hint-text" v-if="state.combatState.inCombat">战斗中无法进行其他行动</div>
           </div>
 
+          <!-- TAB: ESTATE -->
+          <div v-if="drawerTab === 'estate'" class="tab-pane estate-pane">
+            <div class="res-bar">
+               <div class="res-item">金钱: {{ state.player.money }}</div>
+               <div class="res-item">威望: {{ state.player.prestige }}</div>
+            </div>
+
+            <div class="estate-row">
+              <div class="building-card">
+                 <div class="b-title">市集 (Lv.{{ state.player.estate.marketLevel }})</div>
+                 <div class="b-desc">月产金钱: {{ state.player.estate.marketLevel * 100 }}</div>
+                 <button class="up-btn" @click="handleUpgrade('market')">扩建 (-{{ state.player.estate.marketLevel * 500 }}金)</button>
+                 <button class="draw-btn" @click="handleDrawEquip">淘装备 (-500金)</button>
+              </div>
+              <div class="building-card">
+                 <div class="b-title">祠堂 (Lv.{{ state.player.estate.hallLevel }})</div>
+                 <div class="b-desc">月产威望: {{ state.player.estate.hallLevel * 10 }}</div>
+                 <button class="up-btn" @click="handleUpgrade('hall')">修缮 (-{{ state.player.estate.hallLevel * 50 }}威)</button>
+                 <button class="draw-btn" @click="handleGachaKungFu">访名师 (-1000威)</button>
+              </div>
+            </div>
+          </div>
+
           <!-- TAB: STATS -->
           <div v-if="drawerTab === 'stats'" class="tab-pane stats-pane">
+            <div class="gear-section">
+              <div class="gear-slot" @click="openInventory('weapon')">
+                <span class="slot-label">武器</span>
+                <span class="slot-val">{{ getEquippedItemName('weapon') || '未装备' }}</span>
+                <span v-if="state.player.gear.weapon" class="x-btn" @click.stop="handleUnequipItem('weapon')">×</span>
+              </div>
+              <div class="gear-slot" @click="openInventory('armor')">
+                <span class="slot-label">护甲</span>
+                <span class="slot-val">{{ getEquippedItemName('armor') || '未装备' }}</span>
+                <span v-if="state.player.gear.armor" class="x-btn" @click.stop="handleUnequipItem('armor')">×</span>
+              </div>
+            </div>
             <div class="stat-grid">
               <div class="stat-cell"><span class="label">力道</span><span class="val">{{ effectiveStats.power }}</span></div>
               <div class="stat-cell"><span class="label">卸力</span><span class="val">{{ effectiveStats.parry }}</span></div>
@@ -214,18 +246,29 @@
       <div v-if="inventoryModal.show" class="modal-overlay" @click.self="closeInventory">
         <div class="modal">
           <div class="modal-header">
-            <h3>选择{{ inventoryModal.type === 'internal' ? '内功' : inventoryModal.type === 'destruction' ? '催破' : '护体' }}</h3>
+            <h3>选择物品/功法</h3>
             <button class="close-btn" @click="closeInventory">×</button>
           </div>
           <div class="modal-body list">
-             <div v-for="kf in inventoryList" :key="kf.id" class="list-item" @click="selectKungFu(kf.id)">
-                <div class="item-title">{{ kf.name }}</div>
-                <div class="item-desc">{{ kf.desc }}</div>
-                <div class="item-meta" v-if="kf.type==='internal'">{{ kf.neiliType }} | 摧{{kf.slots.destruction}} 护{{kf.slots.protection}}</div>
-                <div class="item-meta" v-if="kf.type==='destruction'">耗势: {{kf.costShi}}</div>
-                <div class="item-meta" v-if="kf.type==='protection'">耗气: {{kf.costTiQi}}</div>
+             <div v-for="item in inventoryList" :key="item.id" class="list-item" @click="selectItem(item.id)">
+                <div class="item-title">{{ item.name }}</div>
+
+                <!-- KungFu Meta -->
+                <template v-if="item.neiliType || item.costShi || item.costTiQi">
+                    <div class="item-desc">{{ item.desc }}</div>
+                    <div class="item-meta" v-if="item.type==='internal'">{{ item.neiliType }} | 摧{{item.slots.destruction}} 护{{item.slots.protection}}</div>
+                    <div class="item-meta" v-if="item.type==='destruction'">耗势: {{item.costShi}}</div>
+                    <div class="item-meta" v-if="item.type==='protection'">耗气: {{item.costTiQi}}</div>
+                </template>
+
+                <!-- Equipment Meta -->
+                <template v-else>
+                     <div class="item-meta" v-if="item.stats">
+                        <span v-for="(v,k) in item.stats" :key="k">{{k}}: {{v}} </span>
+                     </div>
+                </template>
              </div>
-             <div v-if="inventoryList.length === 0" class="empty-tip">暂无此类功法</div>
+             <div v-if="inventoryList.length === 0" class="empty-tip">空空如也</div>
           </div>
         </div>
       </div>
@@ -240,13 +283,15 @@ import {
   state, globalState, effectiveStats, slotCapacity,
   initGlobal, createSaveInSlot, loadSlot, deleteSlot, exitToMenu,
   meditate, allocateQi, startCombat, skipCombat,
-  drawKungFu, equipKungFu, unequipKungFu
+  drawKungFu, equipKungFu, unequipKungFu,
+  upgradeBuilding, drawEquipment, equipItem, unequipItem
 } from './gameLogic';
 import { KUNGFU_DEFINITIONS } from './data/kungfu';
+import { ITEM_DEFINITIONS } from './data/items';
 
 // State
 const drawerOpen = ref(false);
-const drawerTab = ref('action'); // action, stats, kungfu, qi
+const drawerTab = ref('action'); // action, stats, estate, kungfu, qi
 const logsContainer = ref(null);
 const selectedReport = ref(null);
 
@@ -266,10 +311,16 @@ const enemyHpPct = computed(() => {
 const inventoryList = computed(() => {
   if (!inventoryModal.type) return [];
   const type = inventoryModal.type;
-  const uniqueIds = [...new Set(state.player.inventory)];
-  return uniqueIds
-    .map(id => KUNGFU_DEFINITIONS[id])
-    .filter(def => def && def.type === type);
+  if (type === 'weapon' || type === 'armor') {
+    return state.player.bag
+      .map(id => ITEM_DEFINITIONS[id])
+      .filter(def => def && def.type === type);
+  } else {
+    const uniqueIds = [...new Set(state.player.inventory)];
+    return uniqueIds
+      .map(id => KUNGFU_DEFINITIONS[id])
+      .filter(def => def && def.type === type);
+  }
 });
 
 // Watch logs to scroll
@@ -300,8 +351,10 @@ function handleDelete(idx) { if(confirm("删除存档？")) deleteSlot(idx); }
 function handleFight() { startCombat(); drawerOpen.value = false; } // Auto close on fight
 function handleSkip() { skipCombat(); }
 function handleMeditate() { meditate(); }
-function handleGacha() { drawKungFu(); }
+function handleGachaKungFu() { drawKungFu(); }
 function handleAlloc(t, v) { allocateQi(t, v); }
+function handleUpgrade(type) { upgradeBuilding(type); }
+function handleDrawEquip() { drawEquipment(); }
 
 function openReportById(id) {
   const r = state.battleReports.find(x => x.id === id);
@@ -314,13 +367,26 @@ function openInventory(type) {
   inventoryModal.show = true;
 }
 function closeInventory() { inventoryModal.show = false; inventoryModal.type = null; }
-function selectKungFu(id) { equipKungFu(id); closeInventory(); }
+function selectItem(id) {
+  if (inventoryModal.type === 'weapon' || inventoryModal.type === 'armor') {
+    equipItem(id);
+  } else {
+    equipKungFu(id);
+  }
+  closeInventory();
+}
 function handleUnequip(t, i) { if(!state.combatState.inCombat) unequipKungFu(t, i); }
+function handleUnequipItem(slot) { if(!state.combatState.inCombat) unequipItem(slot); }
 
 function getKfName(id) { return KUNGFU_DEFINITIONS[id]?.name || id; }
 function getEquippedName(type) {
   const id = state.player.equipment[type];
   return id ? getKfName(id) : '';
+}
+function getItemName(id) { return ITEM_DEFINITIONS[id]?.name || id; }
+function getEquippedItemName(slot) {
+  const id = state.player.gear[slot];
+  return id ? getItemName(id) : '';
 }
 
 onMounted(() => { initGlobal(); });
@@ -497,6 +563,27 @@ input[type=range] { width: 100%; }
 .qi-ctrl button { width: 30px; height: 30px; background: #333; border-radius: 50%; font-weight: bold; font-size: 18px; line-height: 1; }
 .qi-val { font-size: 18px; font-weight: bold; width: 30px; text-align: center; }
 .qi-remain { text-align: center; color: var(--accent-color); font-size: 12px; margin-top: 12px; }
+
+/* Estate Pane */
+.estate-pane { display: flex; flex-direction: column; gap: 16px; }
+.res-bar { display: flex; justify-content: space-around; background: #333; padding: 8px; border-radius: 4px; }
+.res-item { font-weight: bold; font-size: 14px; color: var(--accent-color); }
+.estate-row { display: flex; flex-direction: column; gap: 12px; }
+.building-card { background: rgba(255,255,255,0.05); padding: 12px; border-radius: 4px; border: 1px solid #444; }
+.b-title { font-weight: bold; font-size: 14px; color: #eee; }
+.b-desc { font-size: 12px; color: #888; margin: 4px 0 8px; }
+.up-btn, .draw-btn {
+    display: inline-block; padding: 6px 12px; margin-right: 8px; font-size: 12px;
+    border: 1px solid #555; border-radius: 4px; background: #333;
+}
+.up-btn:active, .draw-btn:active { background: #444; }
+
+/* Gear Section */
+.gear-section { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gear-slot { background: #333; padding: 12px; border-radius: 4px; display: flex; flex-direction: column; position: relative; cursor: pointer; }
+.slot-label { font-size: 10px; color: #888; }
+.slot-val { font-size: 14px; font-weight: bold; margin-top: 4px; }
+.x-btn { position: absolute; top: 4px; right: 8px; font-size: 14px; color: #888; }
 
 /* Modal */
 .modal-overlay {

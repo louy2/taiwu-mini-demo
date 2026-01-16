@@ -1,6 +1,7 @@
 import { reactive, watch, computed } from 'vue';
 import { loadGlobalData, saveGlobalData } from './utils/storage';
 import { KUNGFU_DEFINITIONS, DEFAULT_INVENTORY } from './data/kungfu';
+import { ITEM_DEFINITIONS } from './data/items';
 
 // Wuxia Terminology
 const SURNAMES = ['李', '王', '张', '刘', '陈', '杨', '赵', '黄', '周', '吴', '徐', '孙', '胡', '朱', '高', '林', '何', '郭', '马', '罗', '独孤', '令狐', '西门', '东方', '慕容', '上官', '南宫'];
@@ -43,6 +44,14 @@ const defaultPlayerState = {
   neiliType: '混元',
   internalRatio: 0,
 
+  // Estate & Currency
+  money: 0,
+  prestige: 0,
+  estate: {
+    marketLevel: 1,
+    hallLevel: 1
+  },
+
   // KungFu System
   inventory: [...DEFAULT_INVENTORY],
   equipment: {
@@ -50,6 +59,14 @@ const defaultPlayerState = {
     destruction: [],
     protection: [],
   },
+
+  // Physical Equipment
+  gear: {
+    weapon: null,
+    armor: null,
+  },
+  bag: [],
+
   resources: { shi: 0, tiqi: 0 },
 };
 
@@ -82,7 +99,7 @@ export const effectiveStats = computed(() => {
   const p = state.player;
   const multipliers = NEILI_TYPES[p.neiliType] || NEILI_TYPES['混元'];
 
-  return {
+  const stats = {
     power: p.basePower + (p.qiDestruction * multipliers[0]),
     parry: p.baseParry + (p.qiProtection * multipliers[0]),
     penetration: p.basePenetration + (p.qiDestruction * multipliers[1]),
@@ -90,6 +107,24 @@ export const effectiveStats = computed(() => {
     qiBreach: p.baseQiBreach + (p.qiDestruction * multipliers[2]),
     qiGuard: p.baseQiGuard + (p.qiProtection * multipliers[2]),
   };
+
+  // Add Gear Stats
+  if (p.gear) {
+    if (p.gear.weapon && ITEM_DEFINITIONS[p.gear.weapon]) {
+      const w = ITEM_DEFINITIONS[p.gear.weapon].stats;
+      if (w.power) stats.power += w.power;
+      if (w.penetration) stats.penetration += w.penetration;
+      if (w.qiBreach) stats.qiBreach += w.qiBreach;
+    }
+    if (p.gear.armor && ITEM_DEFINITIONS[p.gear.armor]) {
+      const a = ITEM_DEFINITIONS[p.gear.armor].stats;
+      if (a.parry) stats.parry += a.parry;
+      if (a.resistance) stats.resistance += a.resistance;
+      if (a.qiGuard) stats.qiGuard += a.qiGuard;
+    }
+  }
+
+  return stats;
 });
 
 // Computed Slots Capacity
@@ -164,6 +199,13 @@ export function loadSlot(slotIndex) {
   if (!state.player.equipment) state.player.equipment = { internal: null, destruction: [], protection: [] };
   if (!state.player.resources) state.player.resources = { shi: 0, tiqi: 0 };
 
+  // Estate Migration
+  if (state.player.money === undefined) state.player.money = 0;
+  if (state.player.prestige === undefined) state.player.prestige = 0;
+  if (!state.player.estate) state.player.estate = { marketLevel: 1, hallLevel: 1 };
+  if (!state.player.gear) state.player.gear = { weapon: null, armor: null };
+  if (!state.player.bag) state.player.bag = [];
+
   state.logs = JSON.parse(JSON.stringify(slotData.logs));
   state.battleReports = JSON.parse(JSON.stringify(slotData.battleReports || []));
 
@@ -216,10 +258,18 @@ watch(
 
 export function drawKungFu() {
   if (state.combatState.inCombat) return;
+
+  const cost = 1000;
+  if (state.player.prestige < cost) {
+    addLog(`威望不足 (需 ${cost})。`, 'system');
+    return;
+  }
+  state.player.prestige -= cost;
+
   const allIds = Object.keys(KUNGFU_DEFINITIONS);
   const randomId = randomElem(allIds);
   state.player.inventory.push(randomId);
-  addLog(`你研读经书，领悟了【${KUNGFU_DEFINITIONS[randomId].name}】！`, 'growth');
+  addLog(`消耗威望，寻访名师，习得【${KUNGFU_DEFINITIONS[randomId].name}】！`, 'growth');
 }
 
 export function equipKungFu(kfId) {
@@ -305,15 +355,98 @@ export function meditate() {
     }
   }
 
-  if (state.player.qi >= MAX_QI) {
-    addLog(`真气充盈，已达瓶颈 (${MAX_QI})，无法继续精进。`, 'system');
-    return;
+  // Estate Production (Month Flow)
+  const marketIncome = state.player.estate.marketLevel * 100;
+  const hallIncome = state.player.estate.hallLevel * 10;
+  state.player.money += marketIncome;
+  state.player.prestige += hallIncome;
+
+  let logMsg = `岁月流转，获得 金钱+${marketIncome}，威望+${hallIncome}。`;
+
+  // Qi Gain
+  if (state.player.qi < MAX_QI) {
+    const gain = 1;
+    state.player.qi = Math.min(state.player.qi + gain, MAX_QI);
+    logMsg += ` 丹田温热，真气上限提升至 ${state.player.qi}。`;
+  } else {
+    logMsg += ` 真气已达瓶颈 (${MAX_QI})。`;
   }
 
-  const gain = 1;
-  state.player.qi = Math.min(state.player.qi + gain, MAX_QI);
+  addLog(logMsg, 'growth');
+}
 
-  addLog(`你运转周天，丹田温热，真气上限提升至 ${state.player.qi}。`, 'growth');
+// --- ESTATE & ITEM ACTIONS ---
+
+export function upgradeBuilding(type) {
+  if (type === 'market') {
+    const cost = state.player.estate.marketLevel * 500;
+    if (state.player.money >= cost) {
+      state.player.money -= cost;
+      state.player.estate.marketLevel++;
+      addLog(`扩建市集，等级提升至 ${state.player.estate.marketLevel}！`, 'growth');
+    } else {
+      addLog(`金钱不足 (需 ${cost})。`, 'system');
+    }
+  } else if (type === 'hall') {
+    const cost = state.player.estate.hallLevel * 50;
+    if (state.player.prestige >= cost) {
+      state.player.prestige -= cost;
+      state.player.estate.hallLevel++;
+      addLog(`修缮祠堂，等级提升至 ${state.player.estate.hallLevel}！`, 'growth');
+    } else {
+      addLog(`威望不足 (需 ${cost})。`, 'system');
+    }
+  }
+}
+
+export function drawEquipment() {
+  const cost = 500;
+  if (state.player.money < cost) {
+    addLog(`金钱不足 (需 ${cost})。`, 'system');
+    return;
+  }
+  state.player.money -= cost;
+
+  const allItems = Object.keys(ITEM_DEFINITIONS);
+  const randomId = randomElem(allItems);
+  state.player.bag.push(randomId);
+  addLog(`在市集淘得一件【${ITEM_DEFINITIONS[randomId].name}】！`, 'growth');
+}
+
+export function equipItem(itemId) {
+  const def = ITEM_DEFINITIONS[itemId];
+  if (!def) return;
+
+  if (def.type === 'weapon') {
+    // Unequip current if any
+    if (state.player.gear.weapon) {
+       state.player.bag.push(state.player.gear.weapon);
+    }
+    state.player.gear.weapon = itemId;
+    // Remove from bag
+    const idx = state.player.bag.indexOf(itemId);
+    if (idx > -1) state.player.bag.splice(idx, 1);
+
+    addLog(`装备了武器【${def.name}】。`);
+  } else if (def.type === 'armor') {
+    if (state.player.gear.armor) {
+       state.player.bag.push(state.player.gear.armor);
+    }
+    state.player.gear.armor = itemId;
+    const idx = state.player.bag.indexOf(itemId);
+    if (idx > -1) state.player.bag.splice(idx, 1);
+
+    addLog(`穿上了护甲【${def.name}】。`);
+  }
+}
+
+export function unequipItem(slot) {
+  const current = state.player.gear[slot];
+  if (current) {
+    state.player.bag.push(current);
+    state.player.gear[slot] = null;
+    addLog(`卸下了${slot === 'weapon' ? '武器' : '护甲'}。`);
+  }
 }
 
 export function allocateQi(type, amount) {
