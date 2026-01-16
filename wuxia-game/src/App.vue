@@ -50,20 +50,27 @@
           </span>
         </div>
 
-        <!-- Stats Grid -->
-        <div class="stats">
-          <div class="stat-col">
-            <div class="stat-item"><span class="label">力道</span><span class="value">{{ effectiveStats.power }}</span></div>
-            <div class="stat-item"><span class="label">卸力</span><span class="value">{{ effectiveStats.parry }}</span></div>
+        <!-- Stats Grid (Compact) -->
+        <div class="stats" @click="showFullStats = !showFullStats">
+          <div class="stat-summary" v-if="!showFullStats">
+            <span>力{{ effectiveStats.power }}/卸{{ effectiveStats.parry }}</span>
+            <span>破体{{ effectiveStats.penetration }}/御体{{ effectiveStats.resistance }}</span>
+            <span class="toggle-hint">▼</span>
           </div>
-          <div class="stat-col">
-            <div class="stat-item"><span class="label">破体</span><span class="value">{{ effectiveStats.penetration }}</span></div>
-            <div class="stat-item"><span class="label">御体</span><span class="value">{{ effectiveStats.resistance }}</span></div>
-          </div>
-          <div class="stat-col">
-            <div class="stat-item"><span class="label">破气</span><span class="value">{{ effectiveStats.qiBreach }}</span></div>
-            <div class="stat-item"><span class="label">御气</span><span class="value">{{ effectiveStats.qiGuard }}</span></div>
-          </div>
+          <template v-else>
+            <div class="stat-col">
+              <div class="stat-item"><span class="label">力道</span><span class="value">{{ effectiveStats.power }}</span></div>
+              <div class="stat-item"><span class="label">卸力</span><span class="value">{{ effectiveStats.parry }}</span></div>
+            </div>
+            <div class="stat-col">
+              <div class="stat-item"><span class="label">破体</span><span class="value">{{ effectiveStats.penetration }}</span></div>
+              <div class="stat-item"><span class="label">御体</span><span class="value">{{ effectiveStats.resistance }}</span></div>
+            </div>
+            <div class="stat-col">
+              <div class="stat-item"><span class="label">破气</span><span class="value">{{ effectiveStats.qiBreach }}</span></div>
+              <div class="stat-item"><span class="label">御气</span><span class="value">{{ effectiveStats.qiGuard }}</span></div>
+            </div>
+          </template>
         </div>
 
         <!-- Resources -->
@@ -287,6 +294,7 @@ const logsContainer = ref(null);
 const showReportList = ref(false);
 const selectedReport = ref(null);
 const uiTab = ref('qi'); // 'qi' or 'kungfu'
+const showFullStats = ref(false);
 
 // Inventory Modal Logic
 const inventoryModal = reactive({
@@ -357,11 +365,11 @@ onMounted(() => { initGlobal(); });
 <style>
 /* Reset & Base */
 :root {
-  --bg-color: #f4e4bc;
-  --text-color: #3e2723;
-  --border-color: #5d4037;
-  --accent-color: #8d6e63;
-  --red-color: #b71c1c;
+  --bg-color: #1a1a1a;
+  --text-color: #d4d4d4;
+  --border-color: #444;
+  --accent-color: #00bcd4;
+  --red-color: #ef5350;
 }
 
 body {
@@ -432,7 +440,9 @@ body {
 .qi-controls { display: flex; justify-content: space-around; margin-top: 4px; }
 .qi-control-row { display: flex; flex-direction: column; align-items: center; }
 .qi-btns button { width: 24px; height: 24px; border: 1px solid var(--border-color); background: #fff; cursor: pointer; margin: 0 2px; }
-.stats { display: flex; justify-content: space-between; margin-top: 12px; }
+.stats { display: flex; justify-content: space-between; margin-top: 8px; cursor: pointer; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 4px; }
+.stat-summary { display: flex; justify-content: space-between; width: 100%; font-size: 12px; font-family: monospace; }
+.toggle-hint { opacity: 0.5; }
 .stat-col { display: flex; flex-direction: column; gap: 4px; align-items: center; }
 .stat-item { display: flex; flex-direction: column; align-items: center; }
 .label { font-size: 10px; opacity: 0.8; }
