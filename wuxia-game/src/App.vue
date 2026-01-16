@@ -422,13 +422,15 @@ body {
   font-family: var(--font-stack);
   color: var(--text-color);
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
 }
 
 /* Container */
 .app-container {
   background-color: var(--bg-color);
   width: 100vw;
-  height: 100vh;
+  height: 100vh; /* Fallback */
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -449,9 +451,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .status-bar {
   flex: 0 0 auto;
   padding: 8px 16px;
+  padding-top: env(safe-area-inset-top, 8px);
   border-bottom: 1px solid var(--border-color);
   background: rgba(255,255,255,0.02);
-  height: 50px; /* Approx for 2 lines */
+  min-height: 50px; /* Approx for 2 lines */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -506,6 +509,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   flex-direction: column;
   transition: max-height 0.3s ease;
   z-index: 10;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 .drawer-handle {
   padding: 10px;
