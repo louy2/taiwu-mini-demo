@@ -4,27 +4,27 @@ import { loadGlobalData, saveGlobalData } from '../utils/storage';
 
 const STORAGE_KEY = 'wuxia_game_data';
 
-describe('Storage Logic', () => {
+describe('存档逻辑 (Storage Logic)', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
   });
 
-  it('should load default storage when localStorage is empty', () => {
+  it('当 localStorage 为空时应加载默认存档', () => {
     const data = loadGlobalData();
     expect(data.meta.version).toBe(2);
     expect(data.slots).toHaveLength(3);
     expect(data.slots[0]).toBeNull();
   });
 
-  it('should save data correctly', () => {
+  it('应正确保存数据', () => {
     const mockData = { meta: { version: 2 }, slots: [null, null, null] };
     saveGlobalData(mockData);
     const stored = localStorage.getItem(STORAGE_KEY);
     expect(JSON.parse(stored)).toEqual(mockData);
   });
 
-  it('should migrate v1 data to v2', () => {
+  it('应将 v1 数据迁移至 v2', () => {
     const v1Data = {
       player: { name: 'Old Hero' },
       logs: [{ text: 'Old Log' }]
@@ -39,7 +39,7 @@ describe('Storage Logic', () => {
     expect(loaded.slots[1]).toBeNull();
   });
 
-  it('should handle corrupted data by resetting', () => {
+  it('应在数据损坏时重置', () => {
     localStorage.setItem(STORAGE_KEY, '{ invalid json');
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
