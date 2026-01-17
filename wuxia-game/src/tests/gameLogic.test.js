@@ -137,6 +137,30 @@ describe('核心游戏逻辑 (Game Logic)', () => {
         }
     });
 
+    it('应防止重复装备同一催破功法', () => {
+        const internalId = Object.keys(KUNGFU_DEFINITIONS).find(k => KUNGFU_DEFINITIONS[k].type === 'internal');
+        equipKungFu(internalId); // Equip internal to get slots
+
+        const destId = Object.keys(KUNGFU_DEFINITIONS).find(k => KUNGFU_DEFINITIONS[k].type === 'destruction');
+        if (destId) {
+            equipKungFu(destId);
+            equipKungFu(destId);
+            expect(state.player.equipment.destruction).toHaveLength(1);
+        }
+    });
+
+    it('应防止重复装备同一护体功法', () => {
+        const internalId = Object.keys(KUNGFU_DEFINITIONS).find(k => KUNGFU_DEFINITIONS[k].type === 'internal');
+        equipKungFu(internalId); // Equip internal to get slots
+
+        const protId = Object.keys(KUNGFU_DEFINITIONS).find(k => KUNGFU_DEFINITIONS[k].type === 'protection');
+        if (protId) {
+            equipKungFu(protId);
+            equipKungFu(protId);
+            expect(state.player.equipment.protection).toHaveLength(1);
+        }
+    });
+
     it('应正确分配真气', () => {
       state.player.qi = 100;
       state.player.qiDestruction = 0;
