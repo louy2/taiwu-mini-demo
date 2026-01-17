@@ -351,6 +351,11 @@ export function equipKungFu(kfId) {
     // Check caps (should increase, so no need to truncate usually, but good practice to verify?
     // Since we add slots, we don't need to truncate.)
   } else if (def.type === 'destruction') {
+    if (state.player.equipment.destruction.includes(kfId)) {
+        addLog(`该功法已装备。`, 'system');
+        return;
+    }
+
     const cap = slotCapacity.value.destruction;
     if (state.player.equipment.destruction.length < cap) {
         state.player.equipment.destruction.push(kfId);
@@ -359,6 +364,11 @@ export function equipKungFu(kfId) {
         addLog(`催破槽位已满！`);
     }
   } else if (def.type === 'protection') {
+    if (state.player.equipment.protection.includes(kfId)) {
+        addLog(`该功法已装备。`, 'system');
+        return;
+    }
+
     const cap = slotCapacity.value.protection;
     if (state.player.equipment.protection.length < cap) {
         state.player.equipment.protection.push(kfId);
