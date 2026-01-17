@@ -822,7 +822,7 @@ export function resolvePlayerAttack(attacker, defender) {
     const totalDmg = parseFloat((dmgExt + dmgInt).toFixed(1));
 
     if (skill) {
-      desc += `${attackerName}使出一招【${move}】，命中${defenderName}的${part}！`;
+      desc += `${attackerName}使出一招【${skillName}】，命中${defenderName}的${part}！`;
     } else {
       desc += `${attackerName}攻击${defenderName}的${part}！`;
     }
@@ -843,7 +843,7 @@ export function resolvePlayerAttack(attacker, defender) {
     }
   } else {
     if (skill) {
-      desc += `${attackerName}使出一招【${move}】，意图攻击${defenderName}的${part}。`;
+      desc += `${attackerName}使出一招【${skillName}】，意图攻击${defenderName}的${part}。`;
     } else {
       desc += `${attackerName}攻击${defenderName}的${part}。`;
     }
