@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  state, resetState, startCombat, resolvePlayerAttack,
+  state, resetState, prepareCombat, resolvePlayerAttack,
   equipKungFu, allocateQi
 } from '../gameLogic';
 import { KUNGFU_DEFINITIONS } from '../data/kungfu';

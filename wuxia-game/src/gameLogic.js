@@ -85,6 +85,7 @@ export const state = reactive({
   battleReports: [],
   combatState: {
     inCombat: false,
+    phase: 'idle', // idle, prep, active, result
     skipping: false,
     enemy: null,
     playerMarks: 0,
@@ -249,6 +250,7 @@ export function loadSlot(slotIndex) {
   // Reset combat state
   state.combatState = {
     inCombat: false,
+    phase: 'idle',
     skipping: false,
     enemy: null,
     playerMarks: 0,
@@ -638,6 +640,7 @@ export function resetState() {
   state.battleReports = [];
   state.combatState = {
     inCombat: false,
+    phase: 'idle',
     skipping: false,
     enemy: null,
     playerMarks: 0,
@@ -655,7 +658,7 @@ export function calculateDecay(ratio) {
   return 12.51 / (12.51 + ratio);
 }
 
-export async function startCombat() {
+export async function prepareCombat() {
   if (state.combatState.inCombat) return;
 
   const playerTotalQi = state.player.qi;
@@ -689,7 +692,9 @@ export async function startCombat() {
     internalRatio: randomInt(0, 100),
   };
 
-  state.combatState.inCombat = true;
+  // Init State
+  state.combatState.inCombat = false; // Waiting for start
+  state.combatState.phase = 'prep';
   state.combatState.skipping = false;
   state.combatState.enemy = enemyStats;
   state.combatState.playerMarks = 0;
@@ -703,12 +708,31 @@ export async function startCombat() {
   state.player.resources.shi = 0;
   state.player.resources.tiqi = 0;
 
+  // No loop start here
+}
+
+export function startFighting() {
+  if (state.combatState.phase !== 'prep') return;
+  state.combatState.phase = 'active';
+  state.combatState.inCombat = true;
+
+  const enemyName = state.combatState.enemy.name;
+  const enemyStats = state.combatState.enemy;
+  const enemyType = enemyStats.neiliType;
+
   addLog(`遭遇了 ${enemyName}！战斗开始！`, 'combat');
-  addCombatLog(`遭遇了 ${enemyName}！(真气:${enemyQi} - 摧破:${enemyDestruction}/护体:${enemyProtection})`);
+  addCombatLog(`遭遇了 ${enemyName}！`);
   addCombatLog(`敌方属性 [${enemyType}] - 力:${enemyStats.power} 卸:${enemyStats.parry}`);
   addCombatLog(`内伤占比: ${enemyStats.internalRatio}%`);
 
   combatLoop();
+}
+
+export function exitCombat() {
+  state.combatState.phase = 'idle';
+  state.combatState.inCombat = false;
+  state.combatState.enemy = null;
+  state.combatState.currentBattleLogs = [];
 }
 
 export function skipCombat() {
@@ -943,6 +967,7 @@ export function checkEndCombat() {
 
 function endCombat(playerWin) {
   state.combatState.inCombat = false;
+  state.combatState.phase = 'result';
   state.combatState.skipping = false;
 
   const resultText = playerWin ? '战胜' : '败给';
