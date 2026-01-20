@@ -61,11 +61,12 @@ describe('核心游戏逻辑 (Game Logic)', () => {
     it('应根据内力属性计算有效属性', () => {
       state.player.basePower = 50;
       state.player.qiDestruction = 10;
-      state.player.neiliType = '金刚'; // [10, 16, 4]
+      state.player.neiliType = '金刚'; // 力道/卸力倍率 = 5
 
-      // Power = Base + (QiDest * Multiplier)
-      // 50 + (10 * 10) = 150
-      expect(effectiveStats.value.power).toBe(150);
+      // 新公式: Power = Base + 内力倍率[力道] * (qiDestruction * 摧破.attack[力道])
+      // 金刚力道倍率 = 5, 摧破力道加成 = 1
+      // 50 + 5 * (10 * 1) = 100
+      expect(effectiveStats.value.power).toBe(100);
     });
 
     it('应通过冥想增加真气', () => {
@@ -269,15 +270,22 @@ describe('核心游戏逻辑 (Game Logic)', () => {
 
     it('当伤害超过阈值时应增加伤势标记', () => {
        state.combatState.inCombat = true;
-       state.combatState.enemy = { parry: 1, resistance: 1, qiGuard: 1 };
+       // 添加新属性以确保攻击能命中 (避免闪避)
+       state.combatState.enemy = {
+         name: '测试敌人',
+         parry: 1, resistance: 1, qiGuard: 1,
+         dodge: 1, dismantle: 100, mindGuard: 100 // 低闪避，高拆招/守心防止暴击加成
+       };
        state.combatState.enemyDamagePool = 199;
 
        const attacker = {
-         power: 100, penetration: 100, qiBreach: 100, internalRatio: 0
+         name: '测试玩家',
+         power: 100, penetration: 100, qiBreach: 100, internalRatio: 0,
+         swiftness: 100, finesse: 50, insight: 50 // 高迅疾确保不被闪避
        };
        // Huge damage to trigger mark
 
-       Math.random = () => 0.1; // Hit
+       Math.random = () => 0.1; // Hit (low roll to pass all checks)
 
        resolvePlayerAttack(attacker, state.combatState.enemy);
 

@@ -6,32 +6,44 @@ describe('真气分配逻辑 (Qi Allocation)', () => {
     resetState();
     state.player.qi = 100;
     state.player.qiDestruction = 0;
+    state.player.qiAgile = 0;
     state.player.qiProtection = 0;
+    state.player.qiMeridian = 0;
   });
 
   it('应该能一次性分配所有真气给摧破', () => {
     allocateAllQi('destruction');
     expect(state.player.qiDestruction).toBe(100);
+    expect(state.player.qiAgile).toBe(0);
     expect(state.player.qiProtection).toBe(0);
+    expect(state.player.qiMeridian).toBe(0);
   });
 
   it('应该能一次性分配所有真气给护体', () => {
     allocateAllQi('protection');
     expect(state.player.qiDestruction).toBe(0);
+    expect(state.player.qiAgile).toBe(0);
     expect(state.player.qiProtection).toBe(100);
+    expect(state.player.qiMeridian).toBe(0);
   });
 
   it('应该能平均分配真气 (偶数)', () => {
+    // 100 / 4 = 25 each
     allocateEvenly();
-    expect(state.player.qiDestruction).toBe(50);
-    expect(state.player.qiProtection).toBe(50);
+    expect(state.player.qiDestruction).toBe(25);
+    expect(state.player.qiAgile).toBe(25);
+    expect(state.player.qiProtection).toBe(25);
+    expect(state.player.qiMeridian).toBe(25);
   });
 
   it('应该能平均分配真气 (奇数)', () => {
+    // 101 / 4 = 25 余 1, 余数分配给摧破
     state.player.qi = 101;
     allocateEvenly();
-    expect(state.player.qiDestruction).toBe(51);
-    expect(state.player.qiProtection).toBe(50);
+    expect(state.player.qiDestruction).toBe(26); // 25 + 1
+    expect(state.player.qiAgile).toBe(25);
+    expect(state.player.qiProtection).toBe(25);
+    expect(state.player.qiMeridian).toBe(25);
   });
 
   it('应该能重置真气分配', () => {
@@ -39,7 +51,9 @@ describe('真气分配逻辑 (Qi Allocation)', () => {
     expect(state.player.qiDestruction).toBe(100);
     resetQiAllocation();
     expect(state.player.qiDestruction).toBe(0);
+    expect(state.player.qiAgile).toBe(0);
     expect(state.player.qiProtection).toBe(0);
+    expect(state.player.qiMeridian).toBe(0);
   });
 
   it('应该在已有分配时正确补齐 (分配所有)', () => {
