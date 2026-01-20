@@ -18,29 +18,49 @@ const MAX_QI = 280;
 const MAX_TIQI = 30000;
 const TIQI_REGEN = 1200; // Per Second
 
-// Neili Types Definition
-// [Type Name]: [Power/Parry, Pen/Res, QiBreach/Guard]
+// Neili Types Definition (表1: 内力类型对人物属性的影响)
+// [Type Name]: [力道/卸力, 精妙/拆招, 迅疾/闪避, 动心/守心, 破体/御体, 破气/御气]
 export const NEILI_TYPES = {
-  '金刚': [10, 16, 4],
-  '紫霞': [4, 6, 14],
-  '玄阴': [4, 4, 16],
-  '纯阳': [6, 10, 10],
-  '归元': [6, 14, 6],
-  '混元': [6, 10, 10],
+  '金刚': [5, 2, 2, 3, 8, 2],
+  '紫霞': [2, 3, 5, 2, 3, 7],
+  '玄阴': [2, 2, 3, 5, 2, 8],
+  '纯阳': [3, 3, 3, 3, 5, 5],
+  '归元': [3, 5, 2, 2, 7, 3],
+  '混元': [3, 3, 3, 3, 5, 5],
+};
+
+// Qi Allocation Types Definition (表2: 真气分配对人物属性的影响)
+// 攻击属性: [力道, 精妙, 迅疾, 动心, 破体, 破气]
+// 防御属性: [卸力, 拆招, 闪避, 守心, 御体, 御气]
+export const QI_ALLOCATION_TYPES = {
+  '摧破': { attack: [1, 6, 3, 3, 1, 1], defense: [0, 0, 0, 0, 0, 0] },
+  '轻灵': { attack: [6, 3, 1, 3, 3, 6], defense: [3, 6, 1, 3, 3, 6] },
+  '护体': { attack: [0, 0, 0, 0, 0, 0], defense: [1, 3, 6, 3, 1, 1] },
+  '奇窍': { attack: [3, 1, 6, 3, 6, 3], defense: [6, 1, 3, 3, 6, 3] },
 };
 
 // Initial Player State Template
 const defaultPlayerState = {
   name: '',
-  basePower: 50,
-  baseParry: 50,
-  basePenetration: 50,
-  baseResistance: 50,
-  baseQiBreach: 50,
-  baseQiGuard: 50,
+  // 6组基础属性: 力道/卸力, 精妙/拆招, 迅疾/闪避, 动心/守心, 破体/御体, 破气/御气
+  basePower: 50,      // 力道
+  baseParry: 50,      // 卸力
+  baseFinesse: 50,    // 精妙 - 影响暴击
+  baseDismantle: 50,  // 拆招 - 抵抗暴击
+  baseSwiftness: 50,  // 迅疾 - 影响闪避
+  baseDodge: 50,      // 闪避 - 闪避几率
+  baseInsight: 50,    // 动心 - 影响破绽发现
+  baseMindGuard: 50,  // 守心 - 抵抗破绽
+  basePenetration: 50, // 破体
+  baseResistance: 50,  // 御体
+  baseQiBreach: 50,    // 破气
+  baseQiGuard: 50,     // 御气
   qi: 80,
-  qiDestruction: 0,
-  qiProtection: 0,
+  // 4种真气分配类型
+  qiDestruction: 0,  // 摧破
+  qiAgile: 0,        // 轻灵
+  qiProtection: 0,   // 护体
+  qiMeridian: 0,     // 奇窍
   neiliType: '混元',
   internalRatio: 0,
 
@@ -98,17 +118,47 @@ export const state = reactive({
 });
 
 // Computed Effective Stats
+// 公式: 最终属性 = 基础属性 + 内力倍率 * Σ(真气分配 * 真气类型加成)
 export const effectiveStats = computed(() => {
   const p = state.player;
-  const multipliers = NEILI_TYPES[p.neiliType] || NEILI_TYPES['混元'];
+  const m = NEILI_TYPES[p.neiliType] || NEILI_TYPES['混元'];
+  // m = [力道/卸力, 精妙/拆招, 迅疾/闪避, 动心/守心, 破体/御体, 破气/御气]
+
+  const qD = p.qiDestruction || 0; // 摧破
+  const qA = p.qiAgile || 0;       // 轻灵
+  const qP = p.qiProtection || 0;  // 护体
+  const qM = p.qiMeridian || 0;    // 奇窍
+
+  const D = QI_ALLOCATION_TYPES['摧破'];
+  const A = QI_ALLOCATION_TYPES['轻灵'];
+  const P = QI_ALLOCATION_TYPES['护体'];
+  const M = QI_ALLOCATION_TYPES['奇窍'];
+
+  // 攻击属性 (6个): 力道, 精妙, 迅疾, 动心, 破体, 破气
+  const attackBonus = (idx) => m[idx] * (qD * D.attack[idx] + qA * A.attack[idx] + qM * M.attack[idx]);
+
+  // 防御属性 (6个): 卸力, 拆招, 闪避, 守心, 御体, 御气
+  const defenseBonus = (idx) => m[idx] * (qA * A.defense[idx] + qP * P.defense[idx] + qM * M.defense[idx]);
 
   const stats = {
-    power: p.basePower + (p.qiDestruction * multipliers[0]),
-    parry: p.baseParry + (p.qiProtection * multipliers[0]),
-    penetration: p.basePenetration + (p.qiDestruction * multipliers[1]),
-    resistance: p.baseResistance + (p.qiProtection * multipliers[1]),
-    qiBreach: p.baseQiBreach + (p.qiDestruction * multipliers[2]),
-    qiGuard: p.baseQiGuard + (p.qiProtection * multipliers[2]),
+    // 力道/卸力
+    power: p.basePower + attackBonus(0),
+    parry: p.baseParry + defenseBonus(0),
+    // 精妙/拆招
+    finesse: (p.baseFinesse || 50) + attackBonus(1),
+    dismantle: (p.baseDismantle || 50) + defenseBonus(1),
+    // 迅疾/闪避
+    swiftness: (p.baseSwiftness || 50) + attackBonus(2),
+    dodge: (p.baseDodge || 50) + defenseBonus(2),
+    // 动心/守心
+    insight: (p.baseInsight || 50) + attackBonus(3),
+    mindGuard: (p.baseMindGuard || 50) + defenseBonus(3),
+    // 破体/御体
+    penetration: p.basePenetration + attackBonus(4),
+    resistance: p.baseResistance + defenseBonus(4),
+    // 破气/御气
+    qiBreach: p.baseQiBreach + attackBonus(5),
+    qiGuard: p.baseQiGuard + defenseBonus(5),
   };
 
   // Add Gear Stats
@@ -118,12 +168,18 @@ export const effectiveStats = computed(() => {
       if (w.power) stats.power += w.power;
       if (w.penetration) stats.penetration += w.penetration;
       if (w.qiBreach) stats.qiBreach += w.qiBreach;
+      if (w.finesse) stats.finesse += w.finesse;
+      if (w.swiftness) stats.swiftness += w.swiftness;
+      if (w.insight) stats.insight += w.insight;
     }
     if (p.gear.armor && ITEM_DEFINITIONS[p.gear.armor]) {
       const a = ITEM_DEFINITIONS[p.gear.armor].stats;
       if (a.parry) stats.parry += a.parry;
       if (a.resistance) stats.resistance += a.resistance;
       if (a.qiGuard) stats.qiGuard += a.qiGuard;
+      if (a.dismantle) stats.dismantle += a.dismantle;
+      if (a.dodge) stats.dodge += a.dodge;
+      if (a.mindGuard) stats.mindGuard += a.mindGuard;
     }
   }
 
@@ -174,8 +230,15 @@ export function initGlobal() {
 export function createSaveInSlot(slotIndex) {
   const newPlayer = JSON.parse(JSON.stringify(defaultPlayerState));
   newPlayer.name = generateName();
+  // 初始化6组基础属性
   newPlayer.basePower = randomInt(50, 60);
   newPlayer.baseParry = randomInt(50, 60);
+  newPlayer.baseFinesse = randomInt(50, 60);
+  newPlayer.baseDismantle = randomInt(50, 60);
+  newPlayer.baseSwiftness = randomInt(50, 60);
+  newPlayer.baseDodge = randomInt(50, 60);
+  newPlayer.baseInsight = randomInt(50, 60);
+  newPlayer.baseMindGuard = randomInt(50, 60);
   newPlayer.basePenetration = randomInt(50, 60);
   newPlayer.baseResistance = randomInt(50, 60);
   newPlayer.baseQiBreach = randomInt(50, 60);
@@ -235,6 +298,18 @@ export function loadSlot(slotIndex) {
   if (!state.player.gear) state.player.gear = { weapon: null, armor: null };
   if (!state.player.bag) state.player.bag = [];
   if (!state.player.itemCounts) state.player.itemCounts = {};
+
+  // Migration: New 6-pair stats (精妙/拆招, 迅疾/闪避, 动心/守心)
+  if (state.player.baseFinesse === undefined) state.player.baseFinesse = randomInt(50, 60);
+  if (state.player.baseDismantle === undefined) state.player.baseDismantle = randomInt(50, 60);
+  if (state.player.baseSwiftness === undefined) state.player.baseSwiftness = randomInt(50, 60);
+  if (state.player.baseDodge === undefined) state.player.baseDodge = randomInt(50, 60);
+  if (state.player.baseInsight === undefined) state.player.baseInsight = randomInt(50, 60);
+  if (state.player.baseMindGuard === undefined) state.player.baseMindGuard = randomInt(50, 60);
+
+  // Migration: New qi allocation types (轻灵, 奇窍)
+  if (state.player.qiAgile === undefined) state.player.qiAgile = 0;
+  if (state.player.qiMeridian === undefined) state.player.qiMeridian = 0;
 
   state.logs = JSON.parse(JSON.stringify(slotData.logs));
   state.battleReports = JSON.parse(JSON.stringify(slotData.battleReports || []));
@@ -586,46 +661,66 @@ export function unequipItem(slot) {
   }
 }
 
+// 获取已使用的总真气
+export function getUsedQi() {
+  const p = state.player;
+  return (p.qiDestruction || 0) + (p.qiAgile || 0) + (p.qiProtection || 0) + (p.qiMeridian || 0);
+}
+
+// 分配真气 (4种类型: destruction/agile/protection/meridian)
 export function allocateQi(type, amount) {
   if (amount > 0) {
-    const used = state.player.qiDestruction + state.player.qiProtection;
+    const used = getUsedQi();
     if (used < state.player.qi) {
       if (type === 'destruction') state.player.qiDestruction++;
-      if (type === 'protection') state.player.qiProtection++;
+      else if (type === 'agile') state.player.qiAgile = (state.player.qiAgile || 0) + 1;
+      else if (type === 'protection') state.player.qiProtection++;
+      else if (type === 'meridian') state.player.qiMeridian = (state.player.qiMeridian || 0) + 1;
     }
   } else {
     if (type === 'destruction' && state.player.qiDestruction > 0) state.player.qiDestruction--;
-    if (type === 'protection' && state.player.qiProtection > 0) state.player.qiProtection--;
+    else if (type === 'agile' && (state.player.qiAgile || 0) > 0) state.player.qiAgile--;
+    else if (type === 'protection' && state.player.qiProtection > 0) state.player.qiProtection--;
+    else if (type === 'meridian' && (state.player.qiMeridian || 0) > 0) state.player.qiMeridian--;
   }
 }
 
 export function allocateAllQi(type) {
-  const used = state.player.qiDestruction + state.player.qiProtection;
+  const used = getUsedQi();
   const remaining = state.player.qi - used;
   if (remaining <= 0) return;
 
   if (type === 'destruction') {
     state.player.qiDestruction += remaining;
+  } else if (type === 'agile') {
+    state.player.qiAgile = (state.player.qiAgile || 0) + remaining;
   } else if (type === 'protection') {
     state.player.qiProtection += remaining;
+  } else if (type === 'meridian') {
+    state.player.qiMeridian = (state.player.qiMeridian || 0) + remaining;
   }
 }
 
 export function allocateEvenly() {
-  const used = state.player.qiDestruction + state.player.qiProtection;
+  const used = getUsedQi();
   const remaining = state.player.qi - used;
   if (remaining <= 0) return;
 
-  const half = Math.floor(remaining / 2);
-  const remainder = remaining % 2;
+  const quarter = Math.floor(remaining / 4);
+  const remainder = remaining % 4;
 
-  state.player.qiDestruction += half + remainder;
-  state.player.qiProtection += half;
+  // 平均分配给4种类型，余数按摧破>轻灵>护体>奇窍分配
+  state.player.qiDestruction += quarter + (remainder >= 1 ? 1 : 0);
+  state.player.qiAgile = (state.player.qiAgile || 0) + quarter + (remainder >= 2 ? 1 : 0);
+  state.player.qiProtection += quarter + (remainder >= 3 ? 1 : 0);
+  state.player.qiMeridian = (state.player.qiMeridian || 0) + quarter;
 }
 
 export function resetQiAllocation() {
   state.player.qiDestruction = 0;
+  state.player.qiAgile = 0;
   state.player.qiProtection = 0;
+  state.player.qiMeridian = 0;
 }
 
 // Helper to reset state for testing
@@ -663,13 +758,24 @@ export async function prepareCombat() {
 
   const playerTotalQi = state.player.qi;
   const enemyQi = Math.max(0, Math.floor(playerTotalQi * (0.9 + Math.random() * 0.2)));
-  const enemyDestruction = randomInt(0, enemyQi);
-  const enemyProtection = enemyQi - enemyDestruction;
+  // 敌人随机分配4种真气
+  const remaining = enemyQi;
+  const enemyDestruction = randomInt(0, Math.floor(remaining / 2));
+  const enemyAgile = randomInt(0, Math.floor((remaining - enemyDestruction) / 2));
+  const enemyProtection = randomInt(0, remaining - enemyDestruction - enemyAgile);
+  const enemyMeridian = remaining - enemyDestruction - enemyAgile - enemyProtection;
   const enemyName = generateName() + ' (对手)';
 
+  // 敌人基础属性 (6组12个)
   const eBase = {
     power: randomInt(50, 60),
     parry: randomInt(50, 60),
+    finesse: randomInt(50, 60),
+    dismantle: randomInt(50, 60),
+    swiftness: randomInt(50, 60),
+    dodge: randomInt(50, 60),
+    insight: randomInt(50, 60),
+    mindGuard: randomInt(50, 60),
     penetration: randomInt(50, 60),
     resistance: randomInt(50, 60),
     qiBreach: randomInt(50, 60),
@@ -678,17 +784,40 @@ export async function prepareCombat() {
 
   const enemyTypes = Object.keys(NEILI_TYPES);
   const enemyType = randomElem(enemyTypes);
-  const enemyMultipliers = NEILI_TYPES[enemyType];
+  const m = NEILI_TYPES[enemyType];
+
+  // 敌人真气分配类型
+  const D = QI_ALLOCATION_TYPES['摧破'];
+  const A = QI_ALLOCATION_TYPES['轻灵'];
+  const P = QI_ALLOCATION_TYPES['护体'];
+  const M = QI_ALLOCATION_TYPES['奇窍'];
+
+  const eqD = enemyDestruction, eqA = enemyAgile, eqP = enemyProtection, eqM = enemyMeridian;
+
+  const eAttack = (idx) => m[idx] * (eqD * D.attack[idx] + eqA * A.attack[idx] + eqM * M.attack[idx]);
+  const eDefense = (idx) => m[idx] * (eqA * A.defense[idx] + eqP * P.defense[idx] + eqM * M.defense[idx]);
 
   const enemyStats = {
     name: enemyName,
     neiliType: enemyType,
-    power: eBase.power + (enemyDestruction * enemyMultipliers[0]),
-    parry: eBase.parry + (enemyProtection * enemyMultipliers[0]),
-    penetration: eBase.penetration + (enemyDestruction * enemyMultipliers[1]),
-    resistance: eBase.resistance + (enemyProtection * enemyMultipliers[1]),
-    qiBreach: eBase.qiBreach + (enemyDestruction * enemyMultipliers[2]),
-    qiGuard: eBase.qiGuard + (enemyProtection * enemyMultipliers[2]),
+    // 力道/卸力
+    power: eBase.power + eAttack(0),
+    parry: eBase.parry + eDefense(0),
+    // 精妙/拆招
+    finesse: eBase.finesse + eAttack(1),
+    dismantle: eBase.dismantle + eDefense(1),
+    // 迅疾/闪避
+    swiftness: eBase.swiftness + eAttack(2),
+    dodge: eBase.dodge + eDefense(2),
+    // 动心/守心
+    insight: eBase.insight + eAttack(3),
+    mindGuard: eBase.mindGuard + eDefense(3),
+    // 破体/御体
+    penetration: eBase.penetration + eAttack(4),
+    resistance: eBase.resistance + eDefense(4),
+    // 破气/御气
+    qiBreach: eBase.qiBreach + eAttack(5),
+    qiGuard: eBase.qiGuard + eDefense(5),
     internalRatio: randomInt(0, 100),
   };
 
@@ -799,7 +928,7 @@ export function resolvePlayerAttack(attacker, defender) {
     }
   }
 
-  // Standard Resolution
+  // Standard Resolution (力道 vs 卸力)
   let hitRate = 0;
   if (effectiveAttacker.power > defender.parry) {
     hitRate = effectiveAttacker.power / defender.parry;
@@ -826,7 +955,6 @@ export function resolvePlayerAttack(attacker, defender) {
     // Add Shi if Basic Attack
     if (!skill) {
         state.player.resources.shi++;
-        // Cap Shi? Maybe 10? User didn't specify. Let's keep it unlimited or logical cap.
     }
 
     // Damage Split
@@ -908,7 +1036,6 @@ export function resolveEnemyAttack(attacker, defender) {
 
   let desc = '';
   if (isHit) {
-    // Enemy assumes simplified calc (no separate int/ext for enemy yet, using same ratio as player for simplicity? Or just enemy.internalRatio)
     const intRatio = attacker.internalRatio / 100;
     const extRatio = 1 - intRatio;
 
