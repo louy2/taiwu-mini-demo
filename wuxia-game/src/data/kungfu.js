@@ -76,3 +76,6 @@ export const DEFAULT_INVENTORY = [
   'dest_longfist',
   'prot_ironshirt'
 ];
+
+// 功法列表（数组形式，供ECS系统使用）
+export const kungfuList = Object.values(KUNGFU_DEFINITIONS);
