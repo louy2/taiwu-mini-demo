@@ -2,6 +2,7 @@ import { reactive, watch, computed } from 'vue';
 import { loadGlobalData, saveGlobalData } from './utils/storage';
 import { KUNGFU_DEFINITIONS, DEFAULT_INVENTORY } from './data/kungfu';
 import { ITEM_DEFINITIONS } from './data/items';
+import { getGameBridge } from './ecs/GameBridge';
 
 // Wuxia Terminology
 const SURNAMES = ['李', '王', '张', '刘', '陈', '杨', '赵', '黄', '周', '吴', '徐', '孙', '胡', '朱', '高', '林', '何', '郭', '马', '罗', '独孤', '令狐', '西门', '东方', '慕容', '上官', '南宫'];
@@ -756,76 +757,32 @@ export function calculateDecay(ratio) {
 export async function prepareCombat() {
   if (state.combatState.inCombat) return;
 
+  // 使用ECS系统生成NPC对手
+  const bridge = getGameBridge();
   const playerTotalQi = state.player.qi;
-  const enemyQi = Math.max(0, Math.floor(playerTotalQi * (0.9 + Math.random() * 0.2)));
-  // 敌人随机分配4种真气
-  const remaining = enemyQi;
-  const enemyDestruction = randomInt(0, Math.floor(remaining / 2));
-  const enemyAgile = randomInt(0, Math.floor((remaining - enemyDestruction) / 2));
-  const enemyProtection = randomInt(0, remaining - enemyDestruction - enemyAgile);
-  const enemyMeridian = remaining - enemyDestruction - enemyAgile - enemyProtection;
-  const enemyName = generateName() + ' (对手)';
 
-  // 敌人基础属性 (6组12个)
-  const eBase = {
-    power: randomInt(50, 60),
-    parry: randomInt(50, 60),
-    finesse: randomInt(50, 60),
-    dismantle: randomInt(50, 60),
-    swiftness: randomInt(50, 60),
-    dodge: randomInt(50, 60),
-    insight: randomInt(50, 60),
-    mindGuard: randomInt(50, 60),
-    penetration: randomInt(50, 60),
-    resistance: randomInt(50, 60),
-    qiBreach: randomInt(50, 60),
-    qiGuard: randomInt(50, 60),
-  };
+  // 生成ECS NPC
+  const npcEntity = bridge.generateOpponent(playerTotalQi);
+  const npcInfo = bridge.getNPCInfo(npcEntity);
 
-  const enemyTypes = Object.keys(NEILI_TYPES);
-  const enemyType = randomElem(enemyTypes);
-  const m = NEILI_TYPES[enemyType];
+  // 将NPC转换为旧版敌人格式（兼容现有战斗系统）
+  const enemyStats = bridge.npcToLegacyEnemy(npcEntity);
 
-  // 敌人真气分配类型
-  const D = QI_ALLOCATION_TYPES['摧破'];
-  const A = QI_ALLOCATION_TYPES['轻灵'];
-  const P = QI_ALLOCATION_TYPES['护体'];
-  const M = QI_ALLOCATION_TYPES['奇窍'];
-
-  const eqD = enemyDestruction, eqA = enemyAgile, eqP = enemyProtection, eqM = enemyMeridian;
-
-  const eAttack = (idx) => m[idx] * (eqD * D.attack[idx] + eqA * A.attack[idx] + eqM * M.attack[idx]);
-  const eDefense = (idx) => m[idx] * (eqA * A.defense[idx] + eqP * P.defense[idx] + eqM * M.defense[idx]);
-
-  const enemyStats = {
-    name: enemyName,
-    neiliType: enemyType,
-    // 力道/卸力
-    power: eBase.power + eAttack(0),
-    parry: eBase.parry + eDefense(0),
-    // 精妙/拆招
-    finesse: eBase.finesse + eAttack(1),
-    dismantle: eBase.dismantle + eDefense(1),
-    // 迅疾/闪避
-    swiftness: eBase.swiftness + eAttack(2),
-    dodge: eBase.dodge + eDefense(2),
-    // 动心/守心
-    insight: eBase.insight + eAttack(3),
-    mindGuard: eBase.mindGuard + eDefense(3),
-    // 破体/御体
-    penetration: eBase.penetration + eAttack(4),
-    resistance: eBase.resistance + eDefense(4),
-    // 破气/御气
-    qiBreach: eBase.qiBreach + eAttack(5),
-    qiGuard: eBase.qiGuard + eDefense(5),
-    internalRatio: randomInt(0, 100),
-  };
+  // 添加NPC的额外信息到敌人数据
+  const identity = npcEntity.getComponent('Identity');
+  if (identity?.title) {
+    enemyStats.title = identity.title;
+  }
+  if (identity?.faction) {
+    enemyStats.faction = identity.faction;
+  }
 
   // Init State
   state.combatState.inCombat = false; // Waiting for start
   state.combatState.phase = 'prep';
   state.combatState.skipping = false;
   state.combatState.enemy = enemyStats;
+  state.combatState.npcEntity = npcEntity; // 保存NPC实体引用
   state.combatState.playerMarks = 0;
   state.combatState.enemyMarks = 0;
   state.combatState.playerDamagePool = 0;
@@ -845,13 +802,22 @@ export function startFighting() {
   state.combatState.phase = 'active';
   state.combatState.inCombat = true;
 
-  const enemyName = state.combatState.enemy.name;
   const enemyStats = state.combatState.enemy;
+  const enemyName = enemyStats.name;
   const enemyType = enemyStats.neiliType;
 
-  addLog(`遭遇了 ${enemyName}！战斗开始！`, 'combat');
-  addCombatLog(`遭遇了 ${enemyName}！`);
-  addCombatLog(`敌方属性 [${enemyType}] - 力:${enemyStats.power} 卸:${enemyStats.parry}`);
+  // 构建敌人描述（包含称号和门派）
+  let enemyDesc = enemyName;
+  if (enemyStats.title) {
+    enemyDesc = `${enemyStats.title} ${enemyName}`;
+  }
+  if (enemyStats.faction) {
+    enemyDesc += ` (${enemyStats.faction})`;
+  }
+
+  addLog(`遭遇了 ${enemyDesc}！战斗开始！`, 'combat');
+  addCombatLog(`遭遇了 ${enemyDesc}！`);
+  addCombatLog(`敌方属性 [${enemyType}] - 力:${Math.round(enemyStats.power)} 卸:${Math.round(enemyStats.parry)}`);
   addCombatLog(`内伤占比: ${enemyStats.internalRatio}%`);
 
   combatLoop();
@@ -1098,7 +1064,16 @@ function endCombat(playerWin) {
   state.combatState.skipping = false;
 
   const resultText = playerWin ? '战胜' : '败给';
-  const enemyName = state.combatState.enemy.name;
+  const enemyStats = state.combatState.enemy;
+  let enemyName = enemyStats.name;
+
+  // 构建敌人描述（包含称号和门派）
+  if (enemyStats.title) {
+    enemyName = `${enemyStats.title} ${enemyStats.name}`;
+  }
+  if (enemyStats.faction) {
+    enemyName += ` (${enemyStats.faction})`;
+  }
 
   const report = {
     id: Date.now(),
@@ -1117,3 +1092,10 @@ function endCombat(playerWin) {
   addCombatLog(summary);
   addLog(summary, 'combat', { reportId: report.id });
 }
+
+// --- ECS 桥接导出 ---
+// 导出GameBridge以便UI组件可以访问ECS系统
+export { getGameBridge } from './ecs/GameBridge';
+
+// 导出ECS常量（供测试和外部使用）
+export { COMBAT_CONSTANTS, QI_CONSTANTS, ESTATE_CONSTANTS } from './ecs/GameBridge';

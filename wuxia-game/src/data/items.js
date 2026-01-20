@@ -81,3 +81,6 @@ export const RARITY_NAMES = {
   4: '极品',
   5: '绝世'
 };
+
+// 装备列表（数组形式，供ECS系统使用）
+export const itemList = Object.values(ITEM_DEFINITIONS);
