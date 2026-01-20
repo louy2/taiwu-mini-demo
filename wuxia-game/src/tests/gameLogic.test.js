@@ -270,22 +270,16 @@ describe('核心游戏逻辑 (Game Logic)', () => {
 
     it('当伤害超过阈值时应增加伤势标记', () => {
        state.combatState.inCombat = true;
-       // 添加新属性以确保攻击能命中 (避免闪避)
-       state.combatState.enemy = {
-         name: '测试敌人',
-         parry: 1, resistance: 1, qiGuard: 1,
-         dodge: 1, dismantle: 100, mindGuard: 100 // 低闪避，高拆招/守心防止暴击加成
-       };
+       state.combatState.enemy = { name: '测试敌人', parry: 1, resistance: 1, qiGuard: 1 };
        state.combatState.enemyDamagePool = 199;
 
        const attacker = {
          name: '测试玩家',
-         power: 100, penetration: 100, qiBreach: 100, internalRatio: 0,
-         swiftness: 100, finesse: 50, insight: 50 // 高迅疾确保不被闪避
+         power: 100, penetration: 100, qiBreach: 100, internalRatio: 0
        };
        // Huge damage to trigger mark
 
-       Math.random = () => 0.1; // Hit (low roll to pass all checks)
+       Math.random = () => 0.1; // Hit
 
        resolvePlayerAttack(attacker, state.combatState.enemy);
 

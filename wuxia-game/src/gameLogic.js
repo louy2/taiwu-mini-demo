@@ -928,26 +928,6 @@ export function resolvePlayerAttack(attacker, defender) {
     }
   }
 
-  // === 新增: 闪避判定 (迅疾 vs 闪避) ===
-  const swiftness = effectiveAttacker.swiftness || 50;
-  const dodge = defender.dodge || 50;
-  const dodgeRate = Math.min(0.5, (dodge / (swiftness + dodge)) * 0.5); // 最高50%闪避率
-  const dodgeRoll = Math.random();
-  const isDodged = dodgeRoll < dodgeRate;
-
-  if (isDodged) {
-    const part = randomElem(BODY_PARTS);
-    let desc = '';
-    if (skill) {
-      desc = `【${skillName}】发动！${attacker.name}使出一招【${skillName}】，`;
-    } else {
-      desc = `${attacker.name}攻击${defender.name}的${part}，`;
-    }
-    desc += `被${defender.name}身法闪避！(闪避率 ${(dodgeRate*100).toFixed(0)}%)`;
-    addCombatLog(desc);
-    return;
-  }
-
   // Standard Resolution (力道 vs 卸力)
   let hitRate = 0;
   if (effectiveAttacker.power > defender.parry) {
@@ -977,22 +957,6 @@ export function resolvePlayerAttack(attacker, defender) {
         state.player.resources.shi++;
     }
 
-    // === 新增: 暴击判定 (精妙 vs 拆招) ===
-    const finesse = effectiveAttacker.finesse || 50;
-    const dismantle = defender.dismantle || 50;
-    const critRate = Math.min(0.5, (finesse / (finesse + dismantle)) * 0.3); // 最高30%暴击率基础
-    const critRoll = Math.random();
-    const isCrit = critRoll < critRate;
-    const critMultiplier = isCrit ? 1.5 : 1.0;
-
-    // === 新增: 破绽判定 (动心 vs 守心) ===
-    const insight = effectiveAttacker.insight || 50;
-    const mindGuard = defender.mindGuard || 50;
-    const flawRate = Math.min(0.3, (insight / (insight + mindGuard)) * 0.2); // 最高20%破绽率
-    const flawRoll = Math.random();
-    const foundFlaw = flawRoll < flawRate;
-    const flawMultiplier = foundFlaw ? 1.3 : 1.0;
-
     // Damage Split
     const intRatio = attacker.internalRatio / 100;
     const extRatio = 1 - intRatio;
@@ -1007,26 +971,14 @@ export function resolvePlayerAttack(attacker, defender) {
     const decayInt = calculateDecay(ratioInt);
     const dmgInt = BASE_DAMAGE * intRatio * ratioInt * decayInt;
 
-    let totalDmg = (dmgExt + dmgInt) * critMultiplier * flawMultiplier;
-    totalDmg = parseFloat(totalDmg.toFixed(1));
+    const totalDmg = parseFloat((dmgExt + dmgInt).toFixed(1));
 
     if (skill) {
       desc += `${attackerName}使出一招【${skillName}】，命中${defenderName}的${part}！`;
     } else {
       desc += `${attackerName}攻击${defenderName}的${part}！`;
     }
-    desc += ` (命中率 ${(hitRate*100).toFixed(0)}%)`;
-
-    // 添加暴击/破绽描述
-    if (isCrit && foundFlaw) {
-      desc += `【暴击+破绽！】`;
-    } else if (isCrit) {
-      desc += `【暴击！】`;
-    } else if (foundFlaw) {
-      desc += `【击中破绽！】`;
-    }
-
-    desc += ` -> 造成 ${totalDmg} 伤害`;
+    desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 造成 ${totalDmg} 伤害`;
 
     let poolName = 'enemyDamagePool';
     state.combatState[poolName] += totalDmg;
@@ -1067,23 +1019,6 @@ export function resolveEnemyAttack(attacker, defender) {
     state.player.resources.tiqi -= skill.costTiQi;
   }
 
-  const attackerName = attacker.name;
-  const defenderName = defender.name;
-  const part = randomElem(BODY_PARTS);
-
-  // === 闪避判定 (敌人迅疾 vs 玩家闪避) ===
-  const swiftness = attacker.swiftness || 50;
-  const dodge = defender.dodge || 50;
-  const dodgeRate = Math.min(0.5, (dodge / (swiftness + dodge)) * 0.5);
-  const dodgeRoll = Math.random();
-  const isDodged = dodgeRoll < dodgeRate;
-
-  if (isDodged) {
-    let desc = `${attackerName}攻击${defenderName}的${part}，被${defenderName}身法闪避！(闪避率 ${(dodgeRate*100).toFixed(0)}%)`;
-    addCombatLog(desc);
-    return;
-  }
-
   let hitRate = 0;
   if (attacker.power > defender.parry) {
     hitRate = attacker.power / defender.parry;
@@ -1094,24 +1029,13 @@ export function resolveEnemyAttack(attacker, defender) {
   const roll = Math.random();
   const isHit = roll < hitRate;
 
+  const move = randomElem(MOVES);
+  const part = randomElem(BODY_PARTS);
+  const attackerName = attacker.name;
+  const defenderName = defender.name;
+
   let desc = '';
   if (isHit) {
-    // === 暴击判定 (敌人精妙 vs 玩家拆招) ===
-    const finesse = attacker.finesse || 50;
-    const dismantle = defender.dismantle || 50;
-    const critRate = Math.min(0.5, (finesse / (finesse + dismantle)) * 0.3);
-    const critRoll = Math.random();
-    const isCrit = critRoll < critRate;
-    const critMultiplier = isCrit ? 1.5 : 1.0;
-
-    // === 破绽判定 (敌人动心 vs 玩家守心) ===
-    const insight = attacker.insight || 50;
-    const mindGuard = defender.mindGuard || 50;
-    const flawRate = Math.min(0.3, (insight / (insight + mindGuard)) * 0.2);
-    const flawRoll = Math.random();
-    const foundFlaw = flawRoll < flawRate;
-    const flawMultiplier = foundFlaw ? 1.3 : 1.0;
-
     const intRatio = attacker.internalRatio / 100;
     const extRatio = 1 - intRatio;
 
@@ -1123,8 +1047,7 @@ export function resolveEnemyAttack(attacker, defender) {
     const decayInt = calculateDecay(ratioInt);
     const dmgInt = BASE_DAMAGE * intRatio * ratioInt * decayInt;
 
-    let totalDmg = (dmgExt + dmgInt) * critMultiplier * flawMultiplier;
-    totalDmg = parseFloat(totalDmg.toFixed(1));
+    let totalDmg = parseFloat((dmgExt + dmgInt).toFixed(1));
 
     // Apply Protection Skill Reduction
     if (skill && skill.effect && skill.effect.damageReduction) {
@@ -1134,18 +1057,7 @@ export function resolveEnemyAttack(attacker, defender) {
     }
 
     desc += `${attackerName}攻击${defenderName}的${part}！`;
-    desc += ` (命中率 ${(hitRate*100).toFixed(0)}%)`;
-
-    // 添加暴击/破绽描述
-    if (isCrit && foundFlaw) {
-      desc += `【暴击+破绽！】`;
-    } else if (isCrit) {
-      desc += `【暴击！】`;
-    } else if (foundFlaw) {
-      desc += `【击中破绽！】`;
-    }
-
-    desc += ` -> 造成 ${totalDmg} 伤害`;
+    desc += ` (命中率 ${(hitRate*100).toFixed(0)}%) -> 造成 ${totalDmg} 伤害`;
 
     let poolName = 'playerDamagePool';
     state.combatState[poolName] += totalDmg;
