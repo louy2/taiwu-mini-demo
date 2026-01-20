@@ -2,7 +2,7 @@ import { reactive, watch, computed } from 'vue';
 import { loadGlobalData, saveGlobalData } from './utils/storage';
 import { KUNGFU_DEFINITIONS, DEFAULT_INVENTORY } from './data/kungfu';
 import { ITEM_DEFINITIONS } from './data/items';
-import { getGameBridge } from './ecs/GameBridge';
+import { getGameBridge, ESTATE_CONSTANTS } from './ecs/GameBridge';
 
 // Wuxia Terminology
 const SURNAMES = ['李', '王', '张', '刘', '陈', '杨', '赵', '黄', '周', '吴', '徐', '孙', '胡', '朱', '高', '林', '何', '郭', '马', '罗', '独孤', '令狐', '西门', '东方', '慕容', '上官', '南宫'];
@@ -374,7 +374,7 @@ watch(
 export function drawKungFu() {
   if (state.combatState.inCombat) return;
 
-  const cost = 100;
+  const cost = ESTATE_CONSTANTS.DRAW_KUNGFU_COST;
   if (state.player.prestige < cost) {
     addLog(`威望不足 (需 ${cost})。`, 'system');
     return;
@@ -554,8 +554,8 @@ export function meditate() {
   }
 
   // Estate Production (Month Flow)
-  const marketIncome = state.player.estate.marketLevel * 100;
-  const hallIncome = state.player.estate.hallLevel * 10;
+  const marketIncome = state.player.estate.marketLevel * ESTATE_CONSTANTS.MARKET_OUTPUT_PER_LEVEL;
+  const hallIncome = state.player.estate.hallLevel * ESTATE_CONSTANTS.HALL_OUTPUT_PER_LEVEL;
   state.player.money += marketIncome;
   state.player.prestige += hallIncome;
 
@@ -577,7 +577,7 @@ export function meditate() {
 
 export function upgradeBuilding(type) {
   if (type === 'market') {
-    const cost = state.player.estate.marketLevel * 500;
+    const cost = state.player.estate.marketLevel * ESTATE_CONSTANTS.MARKET_UPGRADE_COST_MULT;
     if (state.player.money >= cost) {
       state.player.money -= cost;
       state.player.estate.marketLevel++;
@@ -586,7 +586,7 @@ export function upgradeBuilding(type) {
       addLog(`金钱不足 (需 ${cost})。`, 'system');
     }
   } else if (type === 'hall') {
-    const cost = state.player.estate.hallLevel * 50;
+    const cost = state.player.estate.hallLevel * ESTATE_CONSTANTS.HALL_UPGRADE_COST_MULT;
     if (state.player.prestige >= cost) {
       state.player.prestige -= cost;
       state.player.estate.hallLevel++;
@@ -598,7 +598,7 @@ export function upgradeBuilding(type) {
 }
 
 export function drawEquipment() {
-  const cost = 100;
+  const cost = ESTATE_CONSTANTS.DRAW_EQUIPMENT_COST;
   if (state.player.money < cost) {
     addLog(`金钱不足 (需 ${cost})。`, 'system');
     return;

@@ -11,10 +11,10 @@
         <!-- Market -->
         <div class="building-card">
             <div class="b-title">市集 (Lv.{{ state.player.estate.marketLevel }})</div>
-            <div class="b-desc">月产金钱: {{ state.player.estate.marketLevel * 100 }}</div>
+            <div class="b-desc">月产金钱: {{ state.player.estate.marketLevel * ESTATE_CONSTANTS.MARKET_OUTPUT_PER_LEVEL }}</div>
             <div class="btn-row">
-              <button class="up-btn" @click="upgradeBuilding('market')">扩建 (-{{ state.player.estate.marketLevel * 500 }}金)</button>
-              <button class="draw-btn" @click="drawEquipment">淘装备 (-500金)</button>
+              <button class="up-btn" @click="upgradeBuilding('market')">扩建 (-{{ state.player.estate.marketLevel * ESTATE_CONSTANTS.MARKET_UPGRADE_COST_MULT }}金)</button>
+              <button class="draw-btn" @click="drawEquipment">淘装备 (-{{ ESTATE_CONSTANTS.DRAW_EQUIPMENT_COST }}金)</button>
             </div>
             <div class="b-note">在市集可能淘到稀有兵器或护甲。</div>
         </div>
@@ -22,10 +22,10 @@
         <!-- Ancestral Hall -->
         <div class="building-card">
             <div class="b-title">祠堂 (Lv.{{ state.player.estate.hallLevel }})</div>
-            <div class="b-desc">月产威望: {{ state.player.estate.hallLevel * 10 }}</div>
+            <div class="b-desc">月产威望: {{ state.player.estate.hallLevel * ESTATE_CONSTANTS.HALL_OUTPUT_PER_LEVEL }}</div>
             <div class="btn-row">
-              <button class="up-btn" @click="upgradeBuilding('hall')">修缮 (-{{ state.player.estate.hallLevel * 50 }}威)</button>
-              <button class="draw-btn" @click="drawKungFu">访名师 (-1000威)</button>
+              <button class="up-btn" @click="upgradeBuilding('hall')">修缮 (-{{ state.player.estate.hallLevel * ESTATE_CONSTANTS.HALL_UPGRADE_COST_MULT }}威)</button>
+              <button class="draw-btn" @click="drawKungFu">访名师 (-{{ ESTATE_CONSTANTS.DRAW_KUNGFU_COST }}威)</button>
             </div>
             <div class="b-note">消耗威望寻访名师，可领悟绝世神功。</div>
         </div>
@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import { state, upgradeBuilding, drawKungFu, drawEquipment } from '../gameLogic';
+import { state, upgradeBuilding, drawKungFu, drawEquipment, ESTATE_CONSTANTS } from '../gameLogic';
 </script>
 
 <style scoped>
