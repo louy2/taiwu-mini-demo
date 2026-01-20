@@ -4,7 +4,7 @@ import {
   resetState, initGlobal, createSaveInSlot, loadSlot, deleteSlot,
   meditate, equipKungFu, unequipKungFu, allocateQi,
   activateInternal,
-  startCombat, resolvePlayerAttack, resolveEnemyAttack, checkEndCombat,
+  prepareCombat, startFighting, resolvePlayerAttack, resolveEnemyAttack, checkEndCombat,
   calculateDecay, NEILI_TYPES
 } from '../gameLogic';
 import { KUNGFU_DEFINITIONS } from '../data/kungfu';
@@ -201,9 +201,13 @@ describe('核心游戏逻辑 (Game Logic)', () => {
     });
 
     it('应正确初始化战斗状态', async () => {
-      await startCombat();
-      expect(state.combatState.inCombat).toBe(true);
+      await prepareCombat();
+      expect(state.combatState.phase).toBe('prep');
       expect(state.combatState.enemy).not.toBeNull();
+
+      startFighting();
+      expect(state.combatState.phase).toBe('active');
+      expect(state.combatState.inCombat).toBe(true);
       state.combatState.inCombat = false; // Stop the loop
     });
 

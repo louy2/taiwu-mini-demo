@@ -21,31 +21,14 @@
     <!-- === GAME VIEW === -->
     <div v-else class="game-view">
 
+      <CombatView v-if="isCombatMode" />
+
+      <div v-else class="std-interface">
+
       <!-- 1. TOP STATUS BAR (2 Lines) -->
       <header class="status-bar">
-        <!-- Combat Mode -->
-        <div v-if="state.combatState.inCombat" class="status-content combat">
-          <div class="status-line">
-            <span class="name">{{ state.player.name }}</span>
-            <div class="hp-bar-container">
-              <div class="hp-bar player" :style="{ width: playerHpPct + '%' }"></div>
-            </div>
-            <span class="marks">{{ state.combatState.playerMarks }}/12</span>
-            <span class="res-mini">势{{state.player.resources.shi}}/提{{Math.floor(state.player.resources.tiqi/1000)}}k</span>
-          </div>
-          <div class="status-line">
-            <span class="name enemy">{{ state.combatState.enemy.name }}</span>
-            <div class="hp-bar-container">
-              <div class="hp-bar enemy" :style="{ width: enemyHpPct + '%' }"></div>
-            </div>
-            <span class="marks">{{ state.combatState.enemyMarks }}/12</span>
-            <button class="skip-btn-mini" @click="handleSkip" v-if="!state.combatState.skipping">结束</button>
-            <span v-else>...</span>
-          </div>
-        </div>
-
         <!-- Normal Mode -->
-        <div v-else class="status-content normal">
+        <div class="status-content normal">
           <div class="status-line">
             <span class="main-info">
               <span class="name">{{ state.player.name }}</span>
@@ -106,15 +89,14 @@
 
           <!-- TAB: ACTION -->
           <div v-if="drawerTab === 'action'" class="tab-pane action-pane">
-            <button @click="handleFight" :disabled="state.combatState.inCombat" class="action-btn fight">
+            <button @click="handleFight" class="action-btn fight">
               <span class="btn-l">战斗</span>
               <span class="btn-s">寻找对手</span>
             </button>
-            <button @click="handleMeditate" :disabled="state.combatState.inCombat" class="action-btn train">
+            <button @click="handleMeditate" class="action-btn train">
               <span class="btn-l">运转周天</span>
               <span class="btn-s">月份流转 / 产出资源</span>
             </button>
-            <div class="hint-text" v-if="state.combatState.inCombat">战斗中无法进行其他行动</div>
           </div>
 
           <!-- TAB: ESTATE -->
@@ -234,6 +216,8 @@
         </div>
       </div>
 
+      </div> <!-- End std-interface -->
+
       <!-- === MODALS === -->
 
       <!-- Battle Report Modal -->
@@ -296,13 +280,21 @@
   </div>
 </template>
 
+<style scoped>
+/* Full Screen for std-interface to maintain layout */
+.std-interface {
+  display: flex; flex-direction: column; height: 100%; width: 100%; position: relative;
+}
+</style>
+
 <script setup>
 import { onMounted, ref, computed, reactive, watch } from 'vue';
+import CombatView from './components/CombatView.vue';
 import {
   state, globalState, effectiveStats, slotCapacity,
   initGlobal, createSaveInSlot, loadSlot, deleteSlot, exitToMenu,
   meditate, allocateQi, allocateAllQi, allocateEvenly, resetQiAllocation,
-  startCombat, skipCombat,
+  prepareCombat, skipCombat,
   drawKungFu, equipKungFu, unequipKungFu, activateInternal,
   upgradeBuilding, drawEquipment, equipItem, unequipItem
 } from './gameLogic';
@@ -321,6 +313,8 @@ const inventoryModal = reactive({
 });
 
 // Computed
+const isCombatMode = computed(() => state.combatState.phase !== 'idle');
+
 const playerHpPct = computed(() => {
   return Math.max(0, (1 - state.combatState.playerMarks / 12) * 100);
 });
@@ -368,7 +362,7 @@ function handleCreate(idx) { createSaveInSlot(idx); }
 function handleLoad(idx) { loadSlot(idx); }
 function handleDelete(idx) { if(confirm("删除存档？")) deleteSlot(idx); }
 
-function handleFight() { startCombat(); drawerOpen.value = false; } // Auto close on fight
+function handleFight() { prepareCombat(); drawerOpen.value = false; } // Auto close on fight
 function handleSkip() { skipCombat(); }
 function handleMeditate() { meditate(); }
 function handleGachaKungFu() { drawKungFu(); }
