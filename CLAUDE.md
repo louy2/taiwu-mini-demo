@@ -22,7 +22,7 @@ npm run test -- -t "关键词"  # 运行特定测试
 wuxia-game/src/
 ├── main.js              # Vue 入口
 ├── App.vue              # 主界面 (菜单/游戏/战斗视图切换)
-├── gameLogic.js         # 核心游戏逻辑 (~1000行)
+├── gameLogic.js         # 核心游戏逻辑 (~1100行)
 ├── components/
 │   └── CombatView.vue   # 全屏战斗界面
 ├── data/
@@ -30,6 +30,13 @@ wuxia-game/src/
 │   └── items.js         # 装备定义
 ├── utils/
 │   └── storage.js       # 存档管理 (v2 多存档)
+├── ecs/                 # ECS架构 (新)
+│   ├── index.js         # ECS入口
+│   ├── World.js         # 世界管理器
+│   ├── GameBridge.js    # 与旧代码的桥接层
+│   ├── components/      # 组件定义
+│   ├── entities/        # 实体工厂
+│   └── systems/         # 系统逻辑
 └── tests/               # 单元测试
 ```
 
@@ -40,9 +47,24 @@ App.vue
 ├── gameLogic.js (核心状态与逻辑)
 │   ├── data/kungfu.js
 │   ├── data/items.js
-│   └── utils/storage.js
+│   ├── utils/storage.js
+│   └── ecs/GameBridge.js (NPC生成)
 └── CombatView.vue (战斗UI)
     └── gameLogic.js (战斗逻辑)
+
+ecs/
+├── World.js (世界管理)
+├── GameBridge.js (桥接层)
+├── components/ (数据结构)
+├── entities/ (实体工厂)
+└── systems/ (游戏逻辑)
+    ├── AttributeSystem.js
+    ├── CombatSystem.js
+    ├── QiSystem.js
+    ├── KungfuSystem.js
+    ├── GearSystem.js
+    ├── EstateSystem.js
+    └── NPCSystem.js
 ```
 
 ## 核心模块速查
@@ -134,6 +156,26 @@ App.vue
 2. 更新 `meta.version` 并添加迁移逻辑
 3. 测试: `npm run test -- -t "storage"`
 
+### 添加新的ECS组件
+
+1. 在 `ecs/components/index.js` 添加组件创建函数
+2. 确保组件有 `type` 属性
+3. 在 `ComponentFactories` 映射中注册
+4. 测试: `npm run test -- -t "ECS"`
+
+### 添加新的ECS系统
+
+1. 在 `ecs/systems/` 创建新系统类
+2. 系统必须有 `world` 属性和 `update()` 方法
+3. 在 `ecs/systems/index.js` 导出
+4. 在 `GameBridge` 中注册
+
+### 修改NPC生成逻辑
+
+1. 查看 `ecs/systems/NPCSystem.js`
+2. 预设NPC在 `EntityFactory.createPresetNPC()`
+3. 测试: `npm run test -- -t "NPC"`
+
 ## 测试文件
 
 | 文件 | 覆盖范围 |
@@ -143,6 +185,7 @@ App.vue
 | `combatLogs.test.js` | 战斗日志格式 |
 | `qiAllocation.test.js` | 真气分配 |
 | `storage.test.js` | 存档迁移 |
+| `ecs.test.js` | ECS架构、NPC系统 |
 
 ## 游戏术语一致性
 
@@ -165,10 +208,46 @@ App.vue
 - 测试覆盖核心游戏逻辑
 - 提交前运行 `npm run test && npm run build`
 
+## ECS架构速查
+
+### GameBridge 常用方法
+
+```javascript
+import { getGameBridge } from './ecs/GameBridge';
+
+const bridge = getGameBridge();
+
+// NPC生成
+const npc = bridge.generateOpponent(playerQi);  // 随机对手
+const npc = bridge.generatePresetNPC('wudang_disciple');  // 预设NPC
+
+// 获取NPC信息
+const info = bridge.getNPCInfo(npc);
+const enemy = bridge.npcToLegacyEnemy(npc);  // 转换为旧版格式
+```
+
+### 组件结构
+
+```javascript
+// Identity组件
+{ type: 'Identity', id, name, entityType, title, faction }
+
+// Attributes组件
+{ type: 'Attributes', basePower, baseParry, ... }
+
+// Qi组件
+{ type: 'Qi', qi, qiDestruction, qiAgile, qiProtection, qiMeridian }
+
+// AI组件 (NPC专用)
+{ type: 'AI', behavior, skillPriority, aggression }
+```
+
 ## 待实现功能
 
 参考 `docs/design.md` 中已定义但未实现的功能:
 - 紫霞/玄阴/归元内功功法
 - 更多催破/护体功法
 - 装备强化系统
-- 敌人技能系统
+- ~~敌人技能系统~~ ✅ (NPC现在可以使用功法)
+- NPC交互系统（对话、交易）
+- NPC成长系统（随时间变强）
