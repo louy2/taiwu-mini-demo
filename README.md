@@ -1,8 +1,8 @@
 # 太吾小游戏 Demo
 
-受《太吾绘卷》启发的武侠文字游戏 Demo。采用极简夜读 MUD 风格界面。
+受[《太吾绘卷》](https://store.steampowered.com/app/838350/_The_Scroll_Of_Taiwu/)启发的武侠文字游戏 Demo。采用极简夜读 MUD 风格界面。
 
-Scroll of Taiwu inspired wuxia text game demo with minimalist night-reading MUD style.
+[Scroll of Taiwu](https://store.steampowered.com/app/838350/_The_Scroll_Of_Taiwu/) inspired wuxia text game demo with minimalist night-reading MUD style.
 
 ## 游戏特性
 
