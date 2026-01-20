@@ -1,15 +1,10 @@
-# CLAUDE.md - 太吾小游戏项目指南
+# CLAUDE.md - 太吾小游戏开发指南
+
+> 完整游戏设计规格请参阅 [`docs/design.md`](docs/design.md)
 
 ## 项目概述
 
 一款受《太吾绘卷》启发的武侠文字游戏 Demo。采用极简夜读 MUD 风格界面，实现了角色养成、功法系统、装备系统、产业经营和回合制战斗。
-
-## 技术栈
-
-- **框架**: Vue 3 (Composition API + script setup)
-- **构建**: Vite 7
-- **测试**: Vitest + @vue/test-utils
-- **存储**: LocalStorage (带版本迁移)
 
 ## 快速命令
 
@@ -18,227 +13,87 @@ cd wuxia-game
 npm run dev      # 开发服务器
 npm run build    # 生产构建
 npm run test     # 运行测试
+npm run test -- -t "关键词"  # 运行特定测试
 ```
 
-## 目录结构
+## 代码架构
 
 ```
-taiwu-mini-demo/
-├── docs/
-│   └── design.md              # 中文设计文档 (主)
-├── wuxia-game/
-│   ├── src/
-│   │   ├── App.vue            # 主界面 (菜单/游戏/战斗视图切换)
-│   │   ├── main.js            # Vue 入口
-│   │   ├── gameLogic.js       # 核心游戏逻辑 (~1000行)
-│   │   ├── components/
-│   │   │   └── CombatView.vue # 全屏战斗界面
-│   │   ├── data/
-│   │   │   ├── kungfu.js      # 功法定义
-│   │   │   └── items.js       # 装备定义
-│   │   ├── utils/
-│   │   │   └── storage.js     # 存档管理 (v2 多存档)
-│   │   └── tests/             # 单元测试
-│   └── docs/
-│       └── design.md          # 英文设计文档
-└── CLAUDE.md                  # 本文件
+wuxia-game/src/
+├── main.js              # Vue 入口
+├── App.vue              # 主界面 (菜单/游戏/战斗视图切换)
+├── gameLogic.js         # 核心游戏逻辑 (~1000行)
+├── components/
+│   └── CombatView.vue   # 全屏战斗界面
+├── data/
+│   ├── kungfu.js        # 功法定义
+│   └── items.js         # 装备定义
+├── utils/
+│   └── storage.js       # 存档管理 (v2 多存档)
+└── tests/               # 单元测试
 ```
 
----
-
-## 核心系统：设计与实现对照
-
-### 1. 角色属性系统
-
-| 设计文档 | 实现位置 | 实现状态 |
-|---------|---------|---------|
-| 12项基础属性 (6组攻防对) | `gameLogic.js:45-57` defaultPlayerState | 完全实现 |
-| 初始值 50-60 随机 | `gameLogic.js:230-245` createSaveInSlot | 完全实现 |
-| 真气上限 80-280 | `gameLogic.js:17` MAX_QI, `defaultPlayerState.qi` | 完全实现 |
-| 真气分配 (摧破/轻灵/护体/奇窍) | `gameLogic.js:652-712` allocateQi 系列函数 | 完全实现 |
-
-**6组基础属性** (命中属性/化解属性):
-| 攻击属性 | 防御属性 | 说明 |
-|---------|---------|------|
-| 力道 | 卸力 | 命中/化解 |
-| 精妙 | 拆招 | 命中/化解 |
-| 迅疾 | 闪避 | 命中/化解 |
-| 动心 | 守心 | 命中/化解 |
-| 破体 | 御体 | 外伤计算 |
-| 破气 | 御气 | 内伤计算 |
-
-**表1: 内力类型倍率表** (`gameLogic.js:21-30` NEILI_TYPES):
-| 类型 | 力道/卸力 | 精妙/拆招 | 迅疾/闪避 | 动心/守心 | 破体/御体 | 破气/御气 |
-|-----|---------|---------|---------|---------|---------|---------|
-| 金刚 | 5 | 2 | 2 | 3 | 8 | 2 |
-| 紫霞 | 2 | 3 | 5 | 2 | 3 | 7 |
-| 玄阴 | 2 | 2 | 3 | 5 | 2 | 8 |
-| 纯阳 | 3 | 3 | 3 | 3 | 5 | 5 |
-| 归元 | 3 | 5 | 2 | 2 | 7 | 3 |
-| 混元 | 3 | 3 | 3 | 3 | 5 | 5 |
-
-**表2: 真气分配倍率表** (`gameLogic.js:32-40` QI_ALLOCATION_TYPES):
-| 真气类型 | 力道 | 精妙 | 迅疾 | 动心 | 破体 | 破气 | 卸力 | 拆招 | 闪避 | 守心 | 御体 | 御气 |
-|---------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|
-| 摧破 | 1 | 6 | 3 | 3 | 1 | 1 | - | - | - | - | - | - |
-| 轻灵 | 6 | 3 | 1 | 3 | 3 | 6 | 3 | 6 | 1 | 3 | 3 | 6 |
-| 护体 | - | - | - | - | - | - | 1 | 3 | 6 | 3 | 1 | 1 |
-| 奇窍 | 3 | 1 | 6 | 3 | 6 | 3 | 6 | 1 | 3 | 3 | 6 | 3 |
-
-**最终属性计算** (`gameLogic.js:120-187` effectiveStats):
-```
-攻击属性 = 基础属性 + 内力倍率[属性] × Σ(真气分配[类型] × 真气类型加成[类型].attack[属性])
-防御属性 = 基础属性 + 内力倍率[属性] × Σ(真气分配[类型] × 真气类型加成[类型].defense[属性])
-最终属性 = 计算属性 + 装备加成
-```
-
----
-
-### 2. 功法系统
-
-| 设计文档 | 实现位置 | 实现状态 |
-|---------|---------|---------|
-| 内功决定内力类型 | `kungfu.js` neiliType 字段 | 完全实现 |
-| 内功提供技能槽位 | `kungfu.js` slots 字段, `gameLogic.js:134-151` slotCapacity | 完全实现 |
-| 可装备3个内功 (槽位叠加) | `gameLogic.js:339` 上限检查, `slotCapacity` 叠加计算 | 完全实现 |
-| 催破功法消耗势 | `kungfu.js:29-53` costShi | 完全实现 |
-| 护体功法消耗提气 | `kungfu.js:55-71` costTiQi | 完全实现 |
-| 访名师 100 威望 | `gameLogic.js:298-326` drawKungFu | 完全实现 |
-| 重复获得 +1 等级 | `gameLogic.js:316` itemCounts | 完全实现 |
-
-**当前功法定义** (`data/kungfu.js`):
-
-| 类型 | 名称 | 特性 |
-|-----|------|-----|
-| 内功 | 混元一气功 | 混元, 槽位 2/2 |
-| 内功 | 金刚不坏体 | 金刚, 槽位 1/3 (防御型) |
-| 内功 | 纯阳无极功 | 纯阳, 槽位 3/1 (进攻型) |
-| 催破 | 太祖长拳 | 2势, 力道+20% 破体+10% |
-| 催破 | 太极剑法 | 3势, 力道+10% 破体+40% 破气+20% |
-| 催破 | 狮子吼 | 4势, 破气+80% (内伤特化) |
-| 护体 | 铁布衫 | 5000提气, 减伤30% |
-| 护体 | 凌波微步 | 8000提气, 减伤60% |
-
----
-
-### 3. 装备系统
-
-| 设计文档 | 实现位置 | 实现状态 |
-|---------|---------|---------|
-| 武器槽 (力道/破体/破气) | `items.js` weapon 类型 | 完全实现 |
-| 护甲槽 (卸力/御体/御气) | `items.js` armor 类型 | 完全实现 |
-| 背包存储 | `gameLogic.js:69` player.bag | 完全实现 |
-| 淘装备 100 金钱 | `gameLogic.js:524-551` drawEquipment | 完全实现 |
-
-**装备品阶** (`items.js`):
-```
-1-凡品, 2-良品, 3-上品, 4-极品, 5-绝世
-```
-
----
-
-### 4. 产业系统
-
-| 设计文档 | 实现位置 | 实现状态 |
-|---------|---------|---------|
-| 市集产出金钱 (等级×100) | `gameLogic.js:481` | 完全实现 |
-| 祠堂产出威望 (等级×10) | `gameLogic.js:482` | 完全实现 |
-| 市集升级 (等级×500 金钱) | `gameLogic.js:504` | 完全实现 |
-| 祠堂升级 (等级×50 威望) | `gameLogic.js:513` | 完全实现 |
-| 运转周天触发月产 | `gameLogic.js:467-498` meditate | 完全实现 |
-| 新手礼包 1000金钱+1000威望 | `gameLogic.js:243-248` | 完全实现 |
-
----
-
-### 5. 战斗系统
-
-#### 战斗流程 (`gameLogic.js:756-900`)
+### 模块依赖关系
 
 ```
-prepareCombat() → 生成敌人 → phase='prep'
-     ↓
-startFighting() → phase='active' → combatLoop()
-     ↓
-每回合: 提气+1200 → 玩家攻击 → 检查胜负 → 敌人攻击 → 检查胜负
-     ↓
-endCombat() → phase='result' → 生成战报
+App.vue
+├── gameLogic.js (核心状态与逻辑)
+│   ├── data/kungfu.js
+│   ├── data/items.js
+│   └── utils/storage.js
+└── CombatView.vue (战斗UI)
+    └── gameLogic.js (战斗逻辑)
 ```
 
-#### 命中判定 (`gameLogic.js:902-930`)
+## 核心模块速查
 
-```
-力道 > 卸力: 命中率 = 力道/卸力
-力道 ≤ 卸力: 命中率 = (力道/卸力)/2
-```
+### gameLogic.js 关键导出
 
-#### 伤害计算 (`gameLogic.js:940-960`)
+| 函数/常量 | 用途 |
+|----------|------|
+| `MAX_QI`, `MAX_TIQI` | 真气/提气上限常量 |
+| `NEILI_TYPES` | 内力类型倍率表 (金刚/紫霞/玄阴/纯阳/归元/混元) |
+| `QI_ALLOCATION_TYPES` | 真气分配类型效果表 (摧破/轻灵/护体/奇窍) |
+| `defaultPlayerState` | 角色初始状态模板 |
+| `effectiveStats()` | 计算最终属性 (基础+真气加成+装备) |
+| `slotCapacity()` | 计算功法槽位容量 |
+| `createSaveInSlot()` | 创建新存档 |
+| `meditate()` | 运转周天 (月产+真气增长) |
+| `drawKungFu()` | 访名师抽取功法 |
+| `drawEquipment()` | 淘装备抽取 |
+| `allocateQi*()` | 真气分配系列函数 |
+| `prepareCombat()` | 初始化战斗 |
+| `combatLoop()` | 战斗主循环 |
+| `calculateHitRate()` | 命中率计算 |
+| `calculateDamage()` | 伤害计算 |
 
-```
-外伤 = 9 × 外伤比例 × (破体/御体) × 衰减(破体/御体)
-内伤 = 9 × 内伤比例 × (破气/御气) × 衰减(破气/御气)
-衰减(x) = 12.51 / (12.51 + x)
-总伤害 = 外伤 + 内伤
-```
+### 数据文件结构
 
-#### 受伤标记 (`gameLogic.js:965-975`)
-
-- 累计伤害 ≥ 200 → +1 标记
-- 12 标记 = 失败
-
-#### 战斗资源 (`gameLogic.js:17-19`)
-
-| 资源 | 上限 | 获取 | 实现 |
-|-----|-----|------|-----|
-| 势 (Shi) | 无上限 | 普通攻击命中+1 | `gameLogic.js:976-978` |
-| 提气 (TiQi) | 30000 | 每秒+1200 | `gameLogic.js:845` |
-
----
-
-### 6. 界面系统
-
-| 设计文档 | 实现位置 | 实现状态 |
-|---------|---------|---------|
-| 顶部状态栏 (2行) | `App.vue` .top-status | 完全实现 |
-| 中央日志区 | `App.vue` .log-area | 完全实现 |
-| 底部抽屉 (折叠式) | `App.vue` .drawer | 完全实现 |
-| 战报弹窗 | `App.vue` .battle-report-modal | 完全实现 |
-| 深色主题 #1a1a1a | `App.vue` style | 完全实现 |
-| 3存档槽位 | `storage.js`, `App.vue` menu-view | 完全实现 |
-| 全屏战斗界面 (prep/active/result) | `CombatView.vue` | 完全实现 |
-
----
-
-## 开发指南
-
-### 添加新功法
-
-1. 在 `data/kungfu.js` 添加定义:
+**kungfu.js** - 功法定义:
 ```javascript
-'new_kungfu_id': {
-  id: 'new_kungfu_id',
+{
+  id: 'kungfu_id',
   type: 'internal' | 'destruction' | 'protection',
   name: '功法名称',
-  // 内功需要:
-  neiliType: '混元',
+  // 内功专属:
+  neiliType: '混元',           // 内力类型
   slots: { destruction: 2, protection: 2 },
-  // 催破需要:
-  costShi: 2,
-  bonuses: { power: 0.2 },
-  // 护体需要:
-  costTiQi: 5000,
+  // 催破专属:
+  costShi: 2,                  // 消耗势
+  bonuses: { power: 0.2 },     // 属性加成比例
+  // 护体专属:
+  costTiQi: 5000,              // 消耗提气
   effect: { damageReduction: 0.3 }
 }
 ```
 
-### 添加新装备
-
-1. 在 `data/items.js` 添加定义:
+**items.js** - 装备定义:
 ```javascript
-'new_item_id': {
-  id: 'new_item_id',
+{
+  id: 'item_id',
   name: '装备名称',
   type: 'weapon' | 'armor',
-  rarity: 1-5,
+  rarity: 1-5,  // 1凡品 ~ 5绝世
   stats: {
     // 武器: power, penetration, qiBreach
     // 护甲: parry, resistance, qiGuard
@@ -246,53 +101,74 @@ endCombat() → phase='result' → 生成战报
 }
 ```
 
-### 测试
+## 常见开发任务
 
-```bash
-cd wuxia-game
-npm run test           # 运行所有测试
-npm run test -- -t "estate"  # 运行特定测试
-```
+### 添加新功法
 
-关键测试文件:
-- `tests/gameLogic.test.js` - 核心逻辑
-- `tests/estate.test.js` - 产业系统
-- `tests/combatLogs.test.js` - 战斗日志
-- `tests/qiAllocation.test.js` - 真气分配
-- `tests/storage.test.js` - 存档迁移
+1. 在 `data/kungfu.js` 添加功法对象
+2. 确保 `id` 唯一
+3. 运行 `npm run test` 验证
 
-### 存档结构 (v2)
+### 添加新装备
 
-```javascript
-{
-  meta: { version: 2 },
-  slots: [
-    {
-      player: { /* 完整角色状态 */ },
-      logs: [ /* 日志记录 */ ],
-      battleReports: [ /* 战报 */ ],
-      lastPlayed: timestamp
-    },
-    null,  // 空槽位
-    null
-  ]
-}
-```
+1. 在 `data/items.js` 添加装备对象
+2. 确保 `id` 唯一
+3. 抽取概率由 `rarity` 决定
 
----
+### 修改属性计算
 
-## 待实现功能 (设计文档中提及但未完整实现)
+1. 查看 `effectiveStats()` 函数
+2. 相关常量: `NEILI_TYPES`, `QI_ALLOCATION_TYPES`
+3. 测试: `npm run test -- -t "effectiveStats"`
 
-1. **紫霞/玄阴/归元内功** - 内力类型定义已有，但缺少对应内功功法
-2. **更多催破/护体功法** - 可扩展功法池
-3. **装备强化系统** - itemCounts 已预留等级字段
-4. **敌人技能系统** - 敌人目前只有普攻
+### 修改战斗逻辑
 
----
+1. 命中: `calculateHitRate()`
+2. 伤害: `calculateDamage()`
+3. 流程: `combatLoop()`
+4. 测试: `npm run test -- -t "combat"`
+
+### 修改存档结构
+
+1. 查看 `utils/storage.js`
+2. 更新 `meta.version` 并添加迁移逻辑
+3. 测试: `npm run test -- -t "storage"`
+
+## 测试文件
+
+| 文件 | 覆盖范围 |
+|-----|---------|
+| `gameLogic.test.js` | 核心逻辑、属性计算 |
+| `estate.test.js` | 产业系统、资源产出 |
+| `combatLogs.test.js` | 战斗日志格式 |
+| `qiAllocation.test.js` | 真气分配 |
+| `storage.test.js` | 存档迁移 |
+
+## 游戏术语一致性
+
+| 术语 | 英文标识 | 说明 |
+|-----|---------|------|
+| 真气 | qi | 角色能量，可分配提升属性 |
+| 势 | shi | 战斗资源，普攻命中+1 |
+| 提气 | tiqi | 战斗资源，每秒+1200 |
+| 金钱 | money | 产业资源，市集产出 |
+| 威望 | prestige | 产业资源，祠堂产出 |
+| 内功 | internal | 功法类型 |
+| 催破 | destruction | 功法类型 (攻击) |
+| 护体 | protection | 功法类型 (防御) |
 
 ## 代码规范
 
-- 使用中文变量名/注释增强可读性
-- 游戏术语保持一致 (势/提气/真气/威望/金钱)
 - Vue 组件使用 `<script setup>` 语法
+- 游戏术语使用上表中的英文标识
+- 注释使用中文增强可读性
 - 测试覆盖核心游戏逻辑
+- 提交前运行 `npm run test && npm run build`
+
+## 待实现功能
+
+参考 `docs/design.md` 中已定义但未实现的功能:
+- 紫霞/玄阴/归元内功功法
+- 更多催破/护体功法
+- 装备强化系统
+- 敌人技能系统
