@@ -206,12 +206,15 @@ body {
 .app-container {
   background-color: var(--bg-color);
   width: 100vw;
+  max-width: 480px; /* Slightly wider than iPhone (430px) */
+  margin: 0 auto;   /* Center horizontally */
   height: 100vh; /* Fallback */
   height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5); /* Separation on wide screens */
 }
 
 /* Button Reset */
@@ -248,7 +251,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* === MODALS === */
 .modal-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.8); z-index: 100;
   display: flex; align-items: center; justify-content: center;
 }
