@@ -140,7 +140,7 @@ const lastResultSummary = computed(() => {
 
 <style scoped>
 .combat-view {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   background: #111; z-index: 200;
   display: flex; flex-direction: column;
   color: #ccc;
