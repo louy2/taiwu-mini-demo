@@ -5,9 +5,9 @@
 
 export const ESTATE_CONSTANTS = {
   MARKET_OUTPUT_PER_LEVEL: 100,  // 市集每级产出金钱
-  HALL_OUTPUT_PER_LEVEL: 10,     // 祠堂每级产出威望
+  HALL_OUTPUT_PER_LEVEL: 100,    // 祠堂每级产出威望
   MARKET_UPGRADE_COST_MULT: 500, // 市集升级消耗倍率
-  HALL_UPGRADE_COST_MULT: 50,    // 祠堂升级消耗倍率
+  HALL_UPGRADE_COST_MULT: 500,   // 祠堂升级消耗倍率
   WELCOME_GIFT_MONEY: 1000,      // 新手礼包金钱
   WELCOME_GIFT_PRESTIGE: 1000,   // 新手礼包威望
   DRAW_KUNGFU_COST: 100,         // 访名师消耗威望

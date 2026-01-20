@@ -36,9 +36,9 @@ describe('Estate and Economy System', () => {
 
         meditate();
 
-        // Market Lv2 = 200, Hall Lv3 = 30
+        // Market Lv2 = 200, Hall Lv3 = 300
         expect(state.player.money).toBe(200);
-        expect(state.player.prestige).toBe(30);
+        expect(state.player.prestige).toBe(300);
     });
 
     it('Upgrade Market consumes Money and increases Level', () => {
@@ -53,14 +53,14 @@ describe('Estate and Economy System', () => {
     });
 
     it('Upgrade Hall consumes Prestige and increases Level', () => {
-        state.player.prestige = 100;
+        state.player.prestige = 500;
         state.player.estate.hallLevel = 1;
 
-        // Cost = Lv * 50 = 50
+        // Cost = Lv * 500 = 500
         upgradeBuilding('hall');
 
         expect(state.player.estate.hallLevel).toBe(2);
-        expect(state.player.prestige).toBe(50);
+        expect(state.player.prestige).toBe(0);
     });
 
     it('Upgrade fails if not enough currency', () => {
