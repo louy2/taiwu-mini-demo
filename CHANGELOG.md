@@ -4,10 +4,27 @@
 
 ## [Unreleased]
 
+### Added
+- **ECS架构**: 引入Entity-Component-System架构，实现数据与逻辑分离
+  - 10个组件：Identity、Attributes、Qi、Kungfu、Gear、CombatResources、CombatState、Estate、Time、AI
+  - 7个系统：AttributeSystem、CombatSystem、QiSystem、KungfuSystem、GearSystem、EstateSystem、NPCSystem
+  - World世界管理器和GameBridge桥接层
+- **NPC系统**: NPC角色现在与玩家共享相同的组件结构
+  - NPC拥有身份信息（名字、称号、门派）
+  - NPC等级系统（1-5级，基于真气）
+  - AI行为类型（aggressive/defensive/balanced）
+  - NPC可以使用功法和装备
+  - 预设NPC（村口守卫、武当弟子、少林僧人等）
+- **ECS测试**: 新增16个ECS架构单元测试
+- 数据文件新增数组导出（kungfuList、itemList）供ECS系统使用
+
 ### Changed
-- 重构 CLAUDE.md 为开发导向指南
+- 重构 CLAUDE.md 为开发导向指南，添加ECS架构速查
 - 整合 README.md 添加完整项目文档
 - 删除过时的英文设计文档
+- 更新 design.md 添加ECS架构和NPC系统章节
+- 战斗准备阶段改用ECS系统生成NPC对手
+- 战斗日志显示NPC的称号和门派信息
 
 ---
 
