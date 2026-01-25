@@ -25,20 +25,33 @@
 
       <div v-else class="std-interface">
 
-        <!-- Tab Content Area -->
-        <main class="tab-content">
-          <TabWorld
-            v-if="currentTab === 'world'"
-            @open-report="openReportById"
-          />
-          <TabCharacter
-            v-if="currentTab === 'character'"
-            @open-inventory="openInventory"
-          />
-          <TabEstate
-            v-if="currentTab === 'estate'"
-          />
-        </main>
+        <!-- Split Screen Layout -->
+        <div class="split-layout">
+          <!-- Left Panel: Tab Content -->
+          <div class="left-panel">
+            <main class="tab-content">
+              <TabWorld
+                v-if="currentTab === 'world'"
+                @open-report="openReportById"
+              />
+              <TabCharacter
+                v-if="currentTab === 'character'"
+                @open-inventory="openInventory"
+              />
+              <TabEstate
+                v-if="currentTab === 'estate'"
+              />
+            </main>
+          </div>
+
+          <!-- Right Panel: Global Logs -->
+          <aside class="right-panel">
+            <div class="logs-header">
+              <span>江湖事迹</span>
+            </div>
+            <GlobalLogs @open-report="openReportById" />
+          </aside>
+        </div>
 
         <!-- Bottom Navigation -->
         <BottomNav v-model:currentTab="currentTab" />
@@ -114,6 +127,7 @@ import TabWorld from './components/TabWorld.vue';
 import TabCharacter from './components/TabCharacter.vue';
 import TabEstate from './components/TabEstate.vue';
 import BottomNav from './components/BottomNav.vue';
+import GlobalLogs from './components/GlobalLogs.vue';
 
 import {
   state, globalState,
@@ -206,15 +220,22 @@ body {
 .app-container {
   background-color: var(--bg-color);
   width: 100vw;
-  max-width: 480px; /* Slightly wider than iPhone (430px) */
-  margin: 0 auto;   /* Center horizontally */
+  max-width: 480px; /* Mobile default */
+  margin: 0 auto;
   height: 100vh; /* Fallback */
   height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  box-shadow: 0 0 20px rgba(0,0,0,0.5); /* Separation on wide screens */
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+/* Responsive: Tablet and Desktop */
+@media (min-width: 768px) {
+  .app-container {
+    max-width: 960px;
+  }
 }
 
 /* Button Reset */
@@ -288,4 +309,65 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .slot-name { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
 .slot-info { font-size: 10px; color: #777; }
 .delete-btn { position: absolute; right: -30px; top: 50%; transform: translateY(-50%); color: #666; font-size: 20px; }
+
+/* === SPLIT LAYOUT === */
+.split-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.left-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.right-panel {
+  display: none; /* Hidden on mobile by default */
+  flex-direction: column;
+  border-left: 1px solid #333;
+  background: rgba(0,0,0,0.1);
+}
+
+.logs-header {
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid #333;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #888;
+}
+
+/* Responsive: Split screen on larger displays */
+@media (min-width: 768px) {
+  .split-layout {
+    flex-direction: row;
+  }
+
+  .left-panel {
+    flex: 0 0 50%;
+    max-width: 480px;
+    border-right: 1px solid #333;
+  }
+
+  .right-panel {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-container {
+    max-width: 1200px;
+  }
+
+  .left-panel {
+    flex: 0 0 420px;
+  }
+}
 </style>
