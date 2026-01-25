@@ -183,7 +183,8 @@ const lastResultSummary = computed(() => {
 /* Active */
 .cv-scene.active { padding: 0; }
 .cv-top {
-  height: 40%; background: #1a1a1a; border-bottom: 1px solid #333;
+  flex: 0 0 auto; /* Fixed height based on content */
+  background: #1a1a1a; border-bottom: 1px solid #333;
   padding: 16px; display: flex; flex-direction: column; justify-content: center;
 }
 .status-header { display: flex; flex-direction: column; gap: 16px; }
@@ -204,7 +205,9 @@ const lastResultSummary = computed(() => {
 }
 
 .cv-bottom {
-  height: 60%; overflow-y: auto; padding: 16px;
+  flex: 1; /* Fill remaining space */
+  min-height: 0; /* Allow shrinking for scroll */
+  overflow-y: auto; padding: 16px;
   background: #000; display: flex; flex-direction: column; gap: 8px;
   padding-bottom: 60px; /* Space for control */
 }
