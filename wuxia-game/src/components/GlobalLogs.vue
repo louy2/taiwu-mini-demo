@@ -30,7 +30,9 @@ watch(() => state.logs.length, () => {
 <style scoped>
 .global-logs {
   flex: 1;
+  min-height: 0; /* Allow shrinking for scroll */
   overflow-y: auto;
+  overscroll-behavior: contain; /* Prevent scroll chaining */
   padding: 16px;
   padding-top: max(16px, env(safe-area-inset-top));
   display: flex;
