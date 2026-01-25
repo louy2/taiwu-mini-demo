@@ -319,20 +319,23 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 .left-panel {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 .right-panel {
-  display: none; /* Hidden on mobile by default */
+  flex: 1;
+  display: flex;
   flex-direction: column;
-  border-left: 1px solid #333;
+  border-top: 1px solid #333;
   background: rgba(0,0,0,0.1);
+  min-height: 0;
 }
 
 .logs-header {
+  flex: 0 0 auto;
   padding: 12px 16px;
   background: rgba(255,255,255,0.02);
   border-bottom: 1px solid #333;
@@ -342,7 +345,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   color: #888;
 }
 
-/* Responsive: Split screen on larger displays */
+/* Responsive: Side-by-side on larger displays */
 @media (min-width: 768px) {
   .split-layout {
     flex-direction: row;
@@ -355,9 +358,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   }
 
   .right-panel {
-    display: flex;
-    flex: 1;
-    min-width: 0;
+    border-top: none;
+    border-left: 1px solid #333;
   }
 }
 
