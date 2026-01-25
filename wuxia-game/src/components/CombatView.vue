@@ -207,7 +207,10 @@ const lastResultSummary = computed(() => {
 .cv-bottom {
   flex: 1; /* Fill remaining space */
   min-height: 0; /* Allow shrinking for scroll */
-  overflow-y: auto; padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain; /* Prevent scroll chaining */
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
   background: #000; display: flex; flex-direction: column; gap: 8px;
   padding-bottom: 60px; /* Space for control */
 }

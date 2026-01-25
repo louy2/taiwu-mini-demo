@@ -332,6 +332,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   border-top: 1px solid #333;
   background: rgba(0,0,0,0.1);
   min-height: 0;
+  overflow: hidden; /* Contain scroll within */
 }
 
 .logs-header {
